@@ -1,0 +1,93 @@
+# =============================================================
+# no_output_timeout の再現用 CircleCI config.yml
+# =============================================================
+#
+# このファイルは、CircleCI の出力なしタイムアウト（no_output_timeout）の
+# 挙動を短時間で確認するためのサンプルです。
+#
+# 使い方:
+#   1. 任意の GitHub/GitLab リポジトリに .circleci/config.yml として配置
+#   2. CircleCI でプロジェクトをセットアップ
+#   3. パイプラインを実行
+#
+# 期待される結果:
+#   - reproduce-timeout ジョブ: 30秒後にタイムアウトで失敗
+#   - reproduce-timeout-fixed ジョブ: 正常に完了
+#
+# ⚠️ デフォルトの no_output_timeout は 10 分ですが、
+#    再現確認を短時間で行うために 30s に短縮しています。
+# =============================================================
+
+version: 2.1
+
+jobs:
+  # -------------------------------------------------------
+  # ❌ タイムアウトが発生するジョブ
+  # -------------------------------------------------------
+  reproduce-timeout:
+    docker:
+      - image: cimg/node:22.0
+    steps:
+      - run:
+          name: 出力なしタイムアウトを再現（30秒で発動）
+          # no_output_timeout を 30秒に短縮して素早く再現する
+          no_output_timeout: 30s
+          command: |
+            echo "=== タイムアウト再現テスト ==="
+            echo "このメッセージの後、60秒間 stdout に何も出力しません..."
+            echo "30秒後に 'Too long with no output' エラーが発生するはずです"
+            echo "---"
+            # 60秒間、一切の出力なしでスリープ
+            node -e "setTimeout(() => console.log('完了'), 60000)"
+
+  # -------------------------------------------------------
+  # ✅ no_output_timeout を延長して解決したジョブ
+  # -------------------------------------------------------
+  reproduce-timeout-fixed:
+    docker:
+      - image: cimg/node:22.0
+    steps:
+      - run:
+          name: タイムアウトを延長して解決
+          # 出力なし時間（60秒）より長い 2分に設定
+          no_output_timeout: 2m
+          command: |
+            echo "=== タイムアウト延長テスト ==="
+            echo "60秒間出力がありませんが、no_output_timeout: 2m なので成功します"
+            echo "---"
+            node -e "setTimeout(() => console.log('60秒後に出力 → 成功！'), 60000)"
+
+  # -------------------------------------------------------
+  # ✅ 定期的な出力で回避するパターン
+  # -------------------------------------------------------
+  reproduce-timeout-with-progress:
+    docker:
+      - image: cimg/node:22.0
+    steps:
+      - run:
+          name: 定期的なログ出力でタイムアウトを回避
+          no_output_timeout: 30s
+          command: |
+            echo "=== 定期出力パターン ==="
+            echo "10秒ごとにログを出力するため、タイムアウトしません"
+            echo "---"
+            # 10秒ごとに進捗を出力する Node.js スクリプト
+            node -e "
+              const total = 60;
+              let elapsed = 0;
+              const interval = setInterval(() => {
+                elapsed += 10;
+                console.log('[' + elapsed + '/' + total + 's] 処理中...');
+                if (elapsed >= total) {
+                  clearInterval(interval);
+                  console.log('完了！');
+                }
+              }, 10000);
+            "
+
+workflows:
+  test-no-output-timeout:
+    jobs:
+      - reproduce-timeout           # ❌ 30秒でタイムアウト
+      - reproduce-timeout-fixed     # ✅ タイムアウト延長で成功
+      - reproduce-timeout-with-progress  # ✅ 定期出力で回避
