@@ -4,7 +4,8 @@
 #
 # このファイルは、CircleCI の出力なしタイムアウト（no_output_timeout）の
 # 挙動を確認するためのサンプルです（30秒に短縮したクイック再現と、
-# no_output_timeout 未指定＝既定10分での再現の両方を含みます）。
+# no_output_timeout 未指定＝既定10分での再現、および Python の stdout
+# ブロックバッファリング（非 TTY）に起因する無出力の例を含みます）。
 #
 # 使い方:
 #   1. 任意の GitHub/GitLab リポジトリに .circleci/config.yml として配置
@@ -18,6 +19,10 @@
 #   - reproduce-timeout-default-10m ジョブ: no_output_timeout 未指定（既定10分）で
 #     最後のログのあと約10分無出力のため「Too long with no output」で失敗（ステップ所要おおよそ10〜11分）
 #   - reproduce-timeout-fixed-default-10m ジョブ: no_output_timeout: 12m で正常に完了（同上くらいの時間）
+#   - reproduce-timeout-python-buffered ジョブ: PYTHONUNBUFFERED 未設定で write 後に
+#     flush せず長 sleep → ログが届かず 30s で「Too long with no output」（想定）
+#   - reproduce-timeout-python-unbuffered ジョブ: PYTHONUNBUFFERED=1 で同様の write が
+#     即時に届き、無出力区間を 30s 未満に抑えて正常に完了（想定）
 #
 # ⚠️ クイック用ジョブは no_output_timeout を 30s に短縮しています。
 #    デフォルト10分の再現ジョブはパイプライン全体で約10分以上かかります。
@@ -29,6 +34,11 @@ executors:
   node22-small:
     docker:
       - image: cimg/node:22.0
+    resource_class: small
+
+  python312-small:
+    docker:
+      - image: cimg/python:3.12
     resource_class: small
 
 jobs:
@@ -121,6 +131,43 @@ jobs:
             echo "---"
             node -e "setTimeout(() => console.log('11分後に出力 → 成功！'), 660000)"
 
+  # -------------------------------------------------------
+  # Python: stdout ブロックバッファ（非 TTY）と PYTHONUNBUFFERED の対照
+  # Node ジョブの「一切書かない」とは別経路で no_output_timeout がかかる例。
+  # -------------------------------------------------------
+  reproduce-timeout-python-buffered:
+    executor: python312-small
+    steps:
+      - run:
+          name: Python write 後 flush なし長 sleep（バッファ想定・30s で失敗）
+          no_output_timeout: 30s
+          command: |
+            # シェルの echo は使わず、Python のみの出力にする。
+            # 改行なし・flush なしの短い write はブロックバッファ内に留まりやすい。
+            python <<'PY'
+            import sys, time
+            sys.stdout.buffer.write(b"python: buffered (no nl, no flush)")
+            time.sleep(60)
+            sys.stdout.buffer.write(b"\npython: end\n")
+            sys.stdout.buffer.flush()
+            PY
+
+  reproduce-timeout-python-unbuffered:
+    executor: python312-small
+    steps:
+      - run:
+          name: PYTHONUNBUFFERED=1 で即時フラッシュし無出力を 30s 未満に
+          no_output_timeout: 30s
+          command: |
+            export PYTHONUNBUFFERED=1
+            python <<'PY'
+            import sys, time
+            sys.stdout.buffer.write(b"python: unbuffered (no nl yet)")
+            time.sleep(20)
+            sys.stdout.buffer.write(b"\npython: end\n")
+            sys.stdout.buffer.flush()
+            PY
+
 workflows:
   test-no-output-timeout:
     jobs:
@@ -129,3 +176,5 @@ workflows:
       - reproduce-timeout-with-progress    # ✅ 定期出力で回避
       - reproduce-timeout-default-10m      # ❌ 既定10分・無出力で Too long with no output（おおよそ10〜11分）
       - reproduce-timeout-fixed-default-10m # ✅ 12m 延長で11分無出力でも成功（同上くらいの時間）
+      - reproduce-timeout-python-buffered   # ❌ Python バッファで 30s 無出力（想定）
+      - reproduce-timeout-python-unbuffered # ✅ PYTHONUNBUFFERED で即時出力＋短い無出力区間（想定）
