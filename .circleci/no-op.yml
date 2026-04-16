@@ -1,0 +1,166 @@
+# =============================================================
+# type: no-op を fan-in にした requires 集約の再現用 CircleCI config
+# =============================================================
+#
+# 背景（Qiita / CircleCI 公式記事のパターン）:
+#   並列テストのあとに deploy / notify など複数ジョブがあると、各ジョブが
+#   同じテスト一覧を requires に重複して持ちがちです。テストジョブを1つ足すと
+#   その重複分すべてを修正する必要があり、漏れがあると失敗したテストでも
+#   後続が走ってしまうことがあります。
+#
+#   `all-tests-passed` のように type: no-op を1つ挟み、テスト完了をそこで
+#   fan-in すると、後続ジョブの requires は no-op の1行にそろえられます。
+#   テスト追加時の修正は no-op の requires 1か所に限定できます。
+#   no-op は実行環境を起動しないためクレジット消費はありません。
+#
+# ワークフローは2本あります。
+#   - build-test-deploy: no-op fan-in（After）
+#   - build-test-deploy-duplicate-requires: no-op なし（Before）。
+#     deploy / notify が同じ3行の requires を重複して持つ構成の再現。
+#     パイプライン1回で両方走るためジョブは二重になります（グラフ比較用）。
+#
+# 使い方:
+#   1. 任意のリポジトリに .circleci/config.yml として配置するか、
+#      CircleCI プロジェクト設定でこのファイルを参照するパイプライン設定にする
+#   2. パイプラインを実行
+#
+# 期待される結果:
+#   - build-test-deploy: build → 3テスト並列 → all-tests-passed（no-op）
+#     → deploy / notify（各 requires は1行）
+#   - build-test-deploy-duplicate-requires: build → 3テスト並列 →
+#     deploy-without-noop-gate / notify-without-noop-gate（各 requires に
+#     test-unit / test-integration / test-e2e の3行が重複）
+#   - all-tests-passed は即時成功（no-op）、各実行ジョブは軽量 echo で成功
+#
+# 参考:
+#   https://circleci.com/docs/reference/configuration-reference/#job-type
+# =============================================================
+
+version: 2.1
+
+jobs:
+  build:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - run:
+          name: ビルド（デモ）
+          command: echo "build 完了（デモ）"
+
+  test-unit:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - run:
+          name: ユニットテスト（デモ）
+          command: echo "test-unit OK"
+
+  test-integration:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - run:
+          name: 結合テスト（デモ）
+          command: echo "test-integration OK"
+
+  test-e2e:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - run:
+          name: E2E テスト（デモ）
+          command: echo "test-e2e OK"
+
+  # fan-in ポイント（jobs 直下で type: no-op を宣言する）
+  all-tests-passed:
+    type: no-op
+
+  deploy:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - run:
+          name: デプロイ（デモ）
+          command: echo "deploy（all-tests-passed 成功後のみ実行）"
+
+  notify:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - run:
+          name: 通知（デモ）
+          command: echo "notify（all-tests-passed 成功後のみ実行）"
+
+  # no-op なしパターン用（同一の3テストを requires に重複記載するデモ）
+  deploy-without-noop-gate:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - run:
+          name: デプロイ（no-op なしデモ）
+          command: echo "deploy（test-unit/integration/e2e を個別 requires）"
+
+  notify-without-noop-gate:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - run:
+          name: 通知（no-op なしデモ）
+          command: echo "notify（test-unit/integration/e2e を個別 requires）"
+
+workflows:
+  build-test-deploy:
+    jobs:
+      - build
+      - test-unit:
+          requires:
+            - build
+      - test-integration:
+          requires:
+            - build
+      - test-e2e:
+          requires:
+            - build
+      - all-tests-passed:
+          requires:
+            - test-unit
+            - test-integration
+            - test-e2e
+      - deploy:
+          requires:
+            - all-tests-passed
+      - notify:
+          requires:
+            - all-tests-passed
+
+  # 記事の Before 相当: 後続ジョブが同じ requires リストを複製する
+  build-test-deploy-duplicate-requires:
+    jobs:
+      - build
+      - test-unit:
+          requires:
+            - build
+      - test-integration:
+          requires:
+            - build
+      - test-e2e:
+          requires:
+            - build
+      - deploy-without-noop-gate:
+          requires:
+            - test-unit
+            - test-integration
+            - test-e2e
+      - notify-without-noop-gate:
+          requires:
+            - test-unit
+            - test-integration
+            - test-e2e
