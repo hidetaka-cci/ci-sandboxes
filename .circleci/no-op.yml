@@ -38,10 +38,15 @@
 
 version: 2.1
 
-jobs:
-  build:
+executors:
+  base-small:
     docker:
       - image: cimg/base:current
+    resource_class: small
+
+jobs:
+  build:
+    executor: base-small
     steps:
       - checkout
       - run:
@@ -49,8 +54,7 @@ jobs:
           command: echo "build 完了（デモ）"
 
   test-unit:
-    docker:
-      - image: cimg/base:current
+    executor: base-small
     steps:
       - checkout
       - run:
@@ -58,8 +62,7 @@ jobs:
           command: echo "test-unit OK"
 
   test-integration:
-    docker:
-      - image: cimg/base:current
+    executor: base-small
     steps:
       - checkout
       - run:
@@ -67,8 +70,7 @@ jobs:
           command: echo "test-integration OK"
 
   test-e2e:
-    docker:
-      - image: cimg/base:current
+    executor: base-small
     steps:
       - checkout
       - run:
@@ -80,8 +82,7 @@ jobs:
     type: no-op
 
   deploy:
-    docker:
-      - image: cimg/base:current
+    executor: base-small
     steps:
       - checkout
       - run:
@@ -89,8 +90,7 @@ jobs:
           command: echo "deploy（all-tests-passed 成功後のみ実行）"
 
   notify:
-    docker:
-      - image: cimg/base:current
+    executor: base-small
     steps:
       - checkout
       - run:
@@ -99,8 +99,7 @@ jobs:
 
   # no-op なしパターン用（同一の3テストを requires に重複記載するデモ）
   deploy-without-noop-gate:
-    docker:
-      - image: cimg/base:current
+    executor: base-small
     steps:
       - checkout
       - run:
@@ -108,8 +107,7 @@ jobs:
           command: echo "deploy（test-unit/integration/e2e を個別 requires）"
 
   notify-without-noop-gate:
-    docker:
-      - image: cimg/base:current
+    executor: base-small
     steps:
       - checkout
       - run:

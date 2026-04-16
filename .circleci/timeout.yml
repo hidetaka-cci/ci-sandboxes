@@ -25,13 +25,18 @@
 
 version: 2.1
 
+executors:
+  node22-small:
+    docker:
+      - image: cimg/node:22.0
+    resource_class: small
+
 jobs:
   # -------------------------------------------------------
   # ❌ タイムアウトが発生するジョブ
   # -------------------------------------------------------
   reproduce-timeout:
-    docker:
-      - image: cimg/node:22.0
+    executor: node22-small
     steps:
       - run:
           name: 出力なしタイムアウトを再現（30秒で発動）
@@ -49,8 +54,7 @@ jobs:
   # ✅ no_output_timeout を延長して解決したジョブ
   # -------------------------------------------------------
   reproduce-timeout-fixed:
-    docker:
-      - image: cimg/node:22.0
+    executor: node22-small
     steps:
       - run:
           name: タイムアウトを延長して解決
@@ -66,8 +70,7 @@ jobs:
   # ✅ 定期的な出力で回避するパターン
   # -------------------------------------------------------
   reproduce-timeout-with-progress:
-    docker:
-      - image: cimg/node:22.0
+    executor: node22-small
     steps:
       - run:
           name: 定期的なログ出力でタイムアウトを回避
@@ -95,8 +98,7 @@ jobs:
   #     run に no_output_timeout を書かない（CircleCI 既定の 10 分）
   # -------------------------------------------------------
   reproduce-timeout-default-10m:
-    docker:
-      - image: cimg/node:22.0
+    executor: node22-small
     steps:
       - run:
           name: 既定10分・無出力で Too long with no output を再現（所要おおよそ10〜11分）
@@ -109,8 +111,7 @@ jobs:
             node -e "setTimeout(() => console.log('完了（通常はここまで到達しない）'), 660000)"
 
   reproduce-timeout-fixed-default-10m:
-    docker:
-      - image: cimg/node:22.0
+    executor: node22-small
     steps:
       - run:
           name: 12分に延長して11分の無出力を許容
