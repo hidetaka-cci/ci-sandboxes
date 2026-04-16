@@ -3,7 +3,8 @@
 # =============================================================
 #
 # このファイルは、CircleCI の出力なしタイムアウト（no_output_timeout）の
-# 挙動を短時間で確認するためのサンプルです。
+# 挙動を確認するためのサンプルです（30秒に短縮したクイック再現と、
+# no_output_timeout 未指定＝既定10分での再現の両方を含みます）。
 #
 # 使い方:
 #   1. 任意の GitHub/GitLab リポジトリに .circleci/config.yml として配置
@@ -11,26 +12,18 @@
 #   3. パイプラインを実行
 #
 # 期待される結果:
-#   - reproduce-timeout ジョブ: 30秒後にタイムアウトで失敗
+#   - reproduce-timeout ジョブ: 30秒後にタイムアウトで失敗（no_output_timeout 短縮のクイック再現）
 #   - reproduce-timeout-fixed ジョブ: 正常に完了
-#   - reproduce-timeout-with-progress-default-10m ジョブ: no_output_timeout 未指定（デフォルト10分）で正常完了
+#   - reproduce-timeout-with-progress ジョブ: 正常に完了
+#   - reproduce-timeout-default-10m ジョブ: no_output_timeout 未指定（既定10分）で
+#     最後のログのあと約10分無出力のため「Too long with no output」で失敗（ステップ所要おおよそ10〜11分）
+#   - reproduce-timeout-fixed-default-10m ジョブ: no_output_timeout: 12m で正常に完了（同上くらいの時間）
 #
-# デフォルト10分での「無出力タイムアウト」再現（約11分かかります）:
-#   CircleCI の「パイプラインパラメータ」で run-slow-10m-timeout-demo: true を指定して実行
-#   - reproduce-timeout-default-10m: 約10分で失敗（ステップに no_output_timeout なし＝公式デフォルト）
-#   - reproduce-timeout-fixed-default-10m: no_output_timeout: 12m で成功
-#
-# ⚠️ クイック用ジョブは再現確認を短時間で行うために no_output_timeout を 30s に短縮しています。
-#    デフォルトの no_output_timeout は 10 分です。
+# ⚠️ クイック用ジョブは no_output_timeout を 30s に短縮しています。
+#    デフォルト10分の再現ジョブはパイプライン全体で約10分以上かかります。
 # =============================================================
 
 version: 2.1
-
-parameters:
-  # 約11分かかるジョブを有効にする場合のみ true（API または CircleCI UI のパイプラインパラメータから指定）
-  run-slow-10m-timeout-demo:
-    type: boolean
-    default: false
 
 jobs:
   # -------------------------------------------------------
@@ -98,45 +91,22 @@ jobs:
             "
 
   # -------------------------------------------------------
-  # デフォルト no_output_timeout（10分）版 — クイック
-  # -------------------------------------------------------
-  reproduce-timeout-with-progress-default-10m:
-    docker:
-      - image: cimg/node:22.0
-    steps:
-      - run:
-          name: 定期出力（no_output_timeout は未指定＝デフォルト10分）
-          command: |
-            echo "=== デフォルト10分 + 定期出力 ==="
-            echo "run に no_output_timeout を書いていません（CircleCI 既定は 10 分）"
-            echo "---"
-            node -e "
-              const total = 60;
-              let elapsed = 0;
-              const interval = setInterval(() => {
-                elapsed += 10;
-                console.log('[' + elapsed + '/' + total + 's] 処理中...');
-                if (elapsed >= total) {
-                  clearInterval(interval);
-                  console.log('完了！');
-                }
-              }, 10000);
-            "
-
-  # -------------------------------------------------------
-  # デフォルト no_output_timeout（10分）版 — 無出力タイムアウト再現（約11分）
+  # ❌ デフォルト no_output_timeout（10分）— Too long with no output を再現
+  #     run に no_output_timeout を書かない（CircleCI 既定の 10 分）
   # -------------------------------------------------------
   reproduce-timeout-default-10m:
     docker:
       - image: cimg/node:22.0
     steps:
       - run:
-          name: デフォルト10分で無出力タイムアウトを再現（約11分無出力）
+          name: 既定10分・無出力で Too long with no output を再現（所要おおよそ10〜11分）
+          # no_output_timeout を省略 → 公式デフォルト（10分）が適用される
           command: |
             echo "=== デフォルト no_output_timeout（10分）での再現 ==="
-            echo "この後 11 分間 stdout に出力しません。約10分でタイムアウトします。"
+            echo "このあと 11 分間 stdout に一切出力しません。"
+            echo "最後の出力から約 10 分で 'Too long with no output' になる想定です。"
             echo "---"
-            node -e "setTimeout(() => console.log('完了'), 660000)"
+            node -e "setTimeout(() => console.log('完了（通常はここまで到達しない）'), 660000)"
 
   reproduce-timeout-fixed-default-10m:
     docker:
@@ -153,13 +123,8 @@ jobs:
 workflows:
   test-no-output-timeout:
     jobs:
-      - reproduce-timeout           # ❌ 30秒でタイムアウト
-      - reproduce-timeout-fixed     # ✅ タイムアウト延長で成功
-      - reproduce-timeout-with-progress  # ✅ 定期出力で回避
-      - reproduce-timeout-with-progress-default-10m  # ✅ 既定10分 + 定期出力
-
-  test-no-output-timeout-default-10m-slow:
-    when: << pipeline.parameters.run-slow-10m-timeout-demo >>
-    jobs:
-      - reproduce-timeout-default-10m       # ❌ 約10分でタイムアウト（ステップ既定）
-      - reproduce-timeout-fixed-default-10m # ✅ 12m 延長で成功
+      - reproduce-timeout                  # ❌ 30秒でタイムアウト（クイック再現）
+      - reproduce-timeout-fixed            # ✅ タイムアウト延長で成功
+      - reproduce-timeout-with-progress    # ✅ 定期出力で回避
+      - reproduce-timeout-default-10m      # ❌ 既定10分・無出力で Too long with no output（おおよそ10〜11分）
+      - reproduce-timeout-fixed-default-10m # ✅ 12m 延長で11分無出力でも成功（同上くらいの時間）
