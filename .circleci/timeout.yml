@@ -144,7 +144,7 @@ jobs:
           command: |
             # シェルの echo は使わず、Python のみの出力にする。
             # 改行なし・flush なしの短い write はブロックバッファ内に留まりやすい。
-            python <<'PY'
+            python \<<'PY'
             import sys, time
             sys.stdout.buffer.write(b"python: buffered (no nl, no flush)")
             time.sleep(60)
@@ -160,7 +160,7 @@ jobs:
           no_output_timeout: 30s
           command: |
             export PYTHONUNBUFFERED=1
-            python <<'PY'
+            python \<<'PY'
             import sys, time
             sys.stdout.buffer.write(b"python: unbuffered (no nl yet)")
             time.sleep(20)
