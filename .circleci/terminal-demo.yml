@@ -375,7 +375,7 @@ workflows:
             - and-job-a-fail: failed
             - and-job-b-fail: failed
 
-  # AND の対照: a のみ失敗・b は成功 → notify は実行されない
+  # AND の対照: a のみ失敗・b は成功 → notify は実行されない 
   demo-requires-and-failed-one-fails:
     jobs:
       - and-setup
