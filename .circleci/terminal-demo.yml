@@ -27,7 +27,8 @@
 #
 # このファイルに含まれるワークフロー（記事パターンを網羅）:
 #   - demo-requires-syntax … 単一ステータス / 複数（OR）の構文例
-#   - demo-terminal-cleanup … パターン1: terminal で常時クリーンアップ
+#   - demo-terminal-cleanup-success … パターン1: run-tests 成功時の terminal
+#   - demo-terminal-cleanup-failing … パターン1: run-tests 失敗時でも teardown が実行される
 #   - demo-notify-failure-success … パターン2: deploy 成功時は notify-failure 非実行
 #   - demo-notify-failure-failing … パターン2: deploy 失敗時のみ notify-failure 実行
 #   - demo-notify-canceled … パターン3: deploy が canceled のときだけ notify-canceled
@@ -86,15 +87,25 @@ jobs:
           command: 'echo "syntax-multi-condition: upstream failed で OR 条件を満たした"'
 
   # ------------------------------------------------------------------
-  # パターン1: terminal
+  # パターン1: terminal（成功版と失敗版の両方を用意し、どちらでも teardown が走ることを示す）
   # ------------------------------------------------------------------
   run-tests:
     executor: base-small
     steps:
       - checkout
       - run:
-          name: テスト（デモ）
+          name: テスト（成功）
           command: echo "run-tests 成功"
+
+  run-tests-fail:
+    executor: base-small
+    steps:
+      - checkout
+      - run:
+          name: テスト（デモ用に失敗）
+          command: |
+            echo "run-tests-fail: terminal 検証のため意図的に失敗"
+            exit 1
 
   teardown-db:
     executor: base-small
@@ -102,7 +113,7 @@ jobs:
       - checkout
       - run:
           name: "DB teardown（terminal: 上流がどう終わっても実行）"
-          command: 'echo "teardown-db: run-tests が terminal になったため実行"'
+          command: 'echo "teardown-db: 上流が terminal になったため実行"'
 
   # ------------------------------------------------------------------
   # パターン2: failed のみ通知
@@ -299,12 +310,23 @@ workflows:
   # 旧来の5つ列挙は以下と同義（コメント参照）:
   #   requires:
   #     - run-tests: [ success, failed, canceled, unauthorized, not_run ]
-  demo-terminal-cleanup:
+  #
+  # 成功版: run-tests 成功 → teardown-db も成功
+  demo-terminal-cleanup-success:
     jobs:
       - run-tests
       - teardown-db:
           requires:
             - run-tests: terminal
+
+  # 失敗版: run-tests が failed でも teardown-db は terminal 条件で実行される
+  # （従来 success のみを待っていた場合、teardown-db は走らなかった）
+  demo-terminal-cleanup-failing:
+    jobs:
+      - run-tests-fail
+      - teardown-db:
+          requires:
+            - run-tests-fail: terminal
 
   # パターン2: deploy 成功 → notify-failure は実行されない
   demo-notify-failure-success:
