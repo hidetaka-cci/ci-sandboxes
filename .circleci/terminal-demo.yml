@@ -1,0 +1,391 @@
+# =============================================================
+# requires の terminal / not_run ほか終端ステータス指定のデモ用 config
+# =============================================================
+#
+# 背景:
+#   CircleCI の requires はデフォルトで上流の success のみを待つ。
+#   2026/02 以降、終端状態を明示するために terminal / not_run などが使える。
+#
+# requires で指定できるステータス値（記事の一覧）:
+#   success（既定） / failed / canceled / unauthorized / not_run / terminal
+#   terminal = 上記5つの集約（success, failed, canceled, unauthorized, not_run）
+#   unauthorized は restricted context 不足時の終端状態のため、本デモでは
+#   ジョブ例を設けず（requires に unauthorized を指定する書き方は他ステータスと同様）。
+#
+# ステータス指定の構文:
+#   1つだけ: requires: [ upstream: failed ]
+#   複数（OR）: requires: [ upstream: [ failed, canceled ] ]
+#
+# このファイルに含まれるワークフロー（抜け漏れなく記事パターンを網羅）:
+#   - demo-requires-syntax … 単一ステータス / 複数（OR）の構文例
+#   - demo-terminal-cleanup … パターン1: terminal で常時クリーンアップ
+#   - demo-terminal-upstream-skipped … パターン1補足: 上流が branch filter で
+#     not_run でも terminal なら後続が動く
+#   - demo-notify-failure-success … パターン2: deploy 成功時は notify-failure 非実行
+#   - demo-notify-failure-failing … パターン2: deploy 失敗時のみ notify-failure 実行
+#   - demo-notify-canceled … パターン3: deploy が canceled のときだけ notify-canceled
+#     （手動キャンセルで検証。通常実行では deploy 成功のため notify-canceled はスキップ）
+#   - demo-notify-skipped … パターン4: main 以外で deploy が not_run のときだけ
+#     notify-skipped 実行（main では deploy 実行・notify-skipped は非実行）
+#   - demo-success-failed-only … 表の「成功・失敗どちらでも（スキップ時は除く）」:
+#     requires に [ success, failed ]
+#   - demo-requires-and-failed … 注記: 複数ジョブ requires は AND（両方 failed でのみ notify）
+#
+# 使い方:
+#   プロジェクトの .circleci/config.yml として置くか、パイプラインで本ファイルを参照。
+#
+# 参考:
+#   https://circleci.com/changelog/terminal-jobs-released/
+#   https://circleci.com/docs/reference/configuration-reference/#requires
+# =============================================================
+
+version: 2.1
+
+executors:
+  base-small:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+
+jobs:
+  # ------------------------------------------------------------------
+  # demo-requires-syntax（上流を意図的に失敗させ、failed / failed|canceled を満たす）
+  # ------------------------------------------------------------------
+  syntax-upstream-fail:
+    executor: base-small
+    steps:
+      - run:
+          name: 上流ジョブ（デモ用に失敗）
+          command: |
+            echo "syntax-upstream-fail: 失敗して後続の requires 条件を満たす"
+            exit 1
+
+  syntax-single-condition:
+    executor: base-small
+    steps:
+      - run:
+          name: "単一条件（upstream: failed）を満たしたときだけ実行"
+          command: 'echo "syntax-single-condition: upstream が failed のため実行された"'
+
+  syntax-multi-condition:
+    executor: base-small
+    steps:
+      - run:
+          name: 複数 OR（failed | canceled）を満たしたときだけ実行
+          command: 'echo "syntax-multi-condition: upstream failed で OR 条件を満たした"'
+
+  # ------------------------------------------------------------------
+  # パターン1: terminal
+  # ------------------------------------------------------------------
+  run-tests:
+    executor: base-small
+    steps:
+      - checkout
+      - run:
+          name: テスト（デモ）
+          command: echo "run-tests 成功"
+
+  teardown-db:
+    executor: base-small
+    steps:
+      - checkout
+      - run:
+          name: "DB teardown（terminal: 上流がどう終わっても実行）"
+          command: 'echo "teardown-db: run-tests が terminal になったため実行"'
+
+  # 上流を main のみに限定 → 非 main では not_run → terminal 後続で検証可能
+  run-tests-main-only:
+    executor: base-small
+    steps:
+      - run:
+          name: main のみのテスト（他ブランチでは not_run）
+          command: echo "run-tests-main-only on main"
+
+  teardown-after-skippable-upstream:
+    executor: base-small
+    steps:
+      - run:
+          name: "上流がスキップされても実行（requires: terminal）"
+          command: 'echo "teardown-after-skippable-upstream: terminal により実行"'
+
+  # ------------------------------------------------------------------
+  # パターン2: failed のみ通知
+  # ------------------------------------------------------------------
+  p2-build:
+    executor: base-small
+    steps:
+      - run:
+          name: build（デモ）
+          command: echo "p2-build OK"
+
+  p2-deploy-success:
+    executor: base-small
+    steps:
+      - run:
+          name: deploy 成功（デモ）
+          command: echo "p2-deploy-success OK"
+
+  p2-deploy-fail:
+    executor: base-small
+    steps:
+      - run:
+          name: deploy 失敗（デモ）
+          command: |
+            echo "p2-deploy-fail: 意図的に失敗"
+            exit 1
+
+  p2-notify-failure:
+    executor: base-small
+    steps:
+      - run:
+          name: 失敗時のみ通知
+          command: 'echo "p2-notify-failure: deploy が failed のため実行"'
+
+  # ------------------------------------------------------------------
+  # パターン3: canceled のみ通知
+  # ------------------------------------------------------------------
+  p3-deploy:
+    executor: base-small
+    steps:
+      - run:
+          name: 長めの deploy（キャンセル検証用に待機）
+          command: |
+            echo "p3-deploy: 手動キャンセルで canceled にできる待機（最大 2 分・早めにキャンセル可）"
+            sleep 120
+
+  p3-notify-canceled:
+    executor: base-small
+    steps:
+      - run:
+          name: キャンセル時のみ通知
+          command: 'echo "p3-notify-canceled: deploy が canceled のため実行"'
+
+  # ------------------------------------------------------------------
+  # パターン4: not_run のみ（main 以外で deploy スキップ → 通知）
+  # ------------------------------------------------------------------
+  p4-build:
+    executor: base-small
+    steps:
+      - run:
+          name: build（デモ）
+          command: echo "p4-build OK"
+
+  p4-deploy-main-only:
+    executor: base-small
+    steps:
+      - run:
+          name: main のみ deploy
+          command: echo "p4-deploy-main-only on main"
+
+  p4-notify-skipped:
+    executor: base-small
+    steps:
+      - run:
+          name: deploy がスキップされたときだけ通知
+          command: 'echo "p4-notify-skipped: deploy が not_run のため実行"'
+
+  # ------------------------------------------------------------------
+  # 成功・失敗どちらでも（スキップ時は除く）: [ success, failed ]
+  # ------------------------------------------------------------------
+  sf-upstream-success:
+    executor: base-small
+    steps:
+      - run:
+          name: 常に成功する上流
+          command: echo "sf-upstream-success OK"
+
+  sf-after-success-or-failed:
+    executor: base-small
+    steps:
+      - run:
+          name: 上流が success または failed のとき実行（not_run は含まない）
+          command: 'echo "sf-after-success-or-failed: [success, failed] を満たした"'
+
+  sf-upstream-fail:
+    executor: base-small
+    steps:
+      - run:
+          name: 常に失敗する上流
+          command: |
+            echo "sf-upstream-fail: 失敗"
+            exit 1
+
+  sf-after-success-or-failed-from-fail:
+    executor: base-small
+    steps:
+      - run:
+          name: 上流失敗時も [success, failed] で実行
+          command: 'echo "sf-after-success-or-failed-from-fail: failed を満たした"'
+
+  # ------------------------------------------------------------------
+  # AND: job-a failed かつ job-b failed のときだけ notify
+  # ------------------------------------------------------------------
+  and-setup:
+    executor: base-small
+    steps:
+      - run:
+          name: AND デモ用セットアップ
+          command: echo "and-setup OK"
+
+  and-job-a-fail:
+    executor: base-small
+    steps:
+      - run:
+          name: job-a 失敗
+          command: |
+            echo "and-job-a-fail"
+            exit 1
+
+  and-job-b-fail:
+    executor: base-small
+    steps:
+      - run:
+          name: job-b 失敗
+          command: |
+            echo "and-job-b-fail"
+            exit 1
+
+  and-job-b-success:
+    executor: base-small
+    steps:
+      - run:
+          name: job-b 成功（AND デモで片方だけ失敗させる用）
+          command: echo "and-job-b-success OK"
+
+  and-notify-both-failed:
+    executor: base-small
+    steps:
+      - run:
+          name: job-a と job-b が両方 failed のときだけ実行
+          command: 'echo "and-notify-both-failed: 両方 failed の AND を満たした"'
+
+workflows:
+  # 記事「ステータス値の指定方法」: 単一 / 複数 OR
+  demo-requires-syntax:
+    jobs:
+      - syntax-upstream-fail
+      - syntax-single-condition:
+          requires:
+            - syntax-upstream-fail: failed
+      - syntax-multi-condition:
+          requires:
+            - syntax-upstream-fail:
+                - failed
+                - canceled
+
+  # パターン1（記事）: terminal で teardown
+  # 旧来の5つ列挙は以下と同義（コメント参照）:
+  #   requires:
+  #     - run-tests: [ success, failed, canceled, unauthorized, not_run ]
+  # not_run が含まれる点が terminal の利点（スキップ時もクリーンアップ可能）
+  demo-terminal-cleanup:
+    jobs:
+      - run-tests
+      - teardown-db:
+          requires:
+            - run-tests: terminal
+
+  # パターン1補足: 上流が branch でスキップ → not_run でも terminal なら後続実行
+  demo-terminal-upstream-skipped:
+    jobs:
+      - run-tests-main-only:
+          filters:
+            branches:
+              only: main
+      - teardown-after-skippable-upstream:
+          requires:
+            - run-tests-main-only: terminal
+
+  # パターン2: deploy 成功 → notify-failure は実行されない
+  demo-notify-failure-success:
+    jobs:
+      - p2-build
+      - p2-deploy-success:
+          requires:
+            - p2-build
+      - p2-notify-failure:
+          requires:
+            - p2-deploy-success: failed
+
+  # パターン2: deploy 失敗 → notify-failure のみ実行
+  demo-notify-failure-failing:
+    jobs:
+      - p2-build
+      - p2-deploy-fail:
+          requires:
+            - p2-build
+      - p2-notify-failure:
+          requires:
+            - p2-deploy-fail: failed
+
+  # パターン3: canceled のみ（通常は deploy が成功するため notify-canceled はスキップ。
+  # CircleCI UI から p3-deploy 実行中にキャンセルすると p3-notify-canceled が動く）
+  demo-notify-canceled:
+    jobs:
+      - p3-deploy
+      - p3-notify-canceled:
+          requires:
+            - p3-deploy: canceled
+
+  # パターン4: main 以外は deploy not_run → notify-skipped のみ
+  demo-notify-skipped:
+    jobs:
+      - p4-build
+      - p4-deploy-main-only:
+          requires:
+            - p4-build
+          filters:
+            branches:
+              only: main
+      - p4-notify-skipped:
+          requires:
+            - p4-deploy-main-only: not_run
+
+  # 記事の表: 成功・失敗どちらでも（スキップ時は除く）→ [ success, failed ]
+  demo-success-failed-upstream-ok:
+    jobs:
+      - sf-upstream-success
+      - sf-after-success-or-failed:
+          requires:
+            - sf-upstream-success:
+                - success
+                - failed
+
+  demo-success-failed-upstream-fail:
+    jobs:
+      - sf-upstream-fail
+      - sf-after-success-or-failed-from-fail:
+          requires:
+            - sf-upstream-fail:
+                - success
+                - failed
+
+  # 記事の注: 複数ジョブの requires は AND（両方 failed でのみ notify）
+  demo-requires-and-failed-both-fail:
+    jobs:
+      - and-setup
+      - and-job-a-fail:
+          requires:
+            - and-setup
+      - and-job-b-fail:
+          requires:
+            - and-setup
+      - and-notify-both-failed:
+          requires:
+            - and-job-a-fail: failed
+            - and-job-b-fail: failed
+
+  # AND の対照: a のみ失敗・b は成功 → notify は実行されない
+  demo-requires-and-failed-one-fails:
+    jobs:
+      - and-setup
+      - and-job-a-fail:
+          requires:
+            - and-setup
+      - and-job-b-success:
+          requires:
+            - and-setup
+      - and-notify-both-failed:
+          requires:
+            - and-job-a-fail: failed
+            - and-job-b-success: failed
