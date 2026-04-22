@@ -16,20 +16,30 @@
 #   1つだけ: requires: [ upstream: failed ]
 #   複数（OR）: requires: [ upstream: [ failed, canceled ] ]
 #
-# このファイルに含まれるワークフロー（抜け漏れなく記事パターンを網羅）:
+# not_run の発生条件について:
+#   not_run は「ジョブの依存が永久に満たされなくなった場合」に設定される。
+#   具体的には上流ジョブが failed / unauthorized などで終わり、依存条件を
+#   満たせなくなったケース（下記 demo-not-run-chain）。
+#   なお、branch/tag filter で除外されたジョブは not_run にはならず、
+#   requires の依存解決上は「無視」される（Configuration reference 参照）。
+#   ブランチごとの後処理分岐は後処理ジョブ側に filter を付ける
+#   （下記 demo-branch-switched-postprocess）。
+#
+# このファイルに含まれるワークフロー（記事パターンを網羅）:
 #   - demo-requires-syntax … 単一ステータス / 複数（OR）の構文例
 #   - demo-terminal-cleanup … パターン1: terminal で常時クリーンアップ
-#   - demo-terminal-upstream-skipped … パターン1補足: 上流が branch filter で
-#     not_run でも terminal なら後続が動く
 #   - demo-notify-failure-success … パターン2: deploy 成功時は notify-failure 非実行
 #   - demo-notify-failure-failing … パターン2: deploy 失敗時のみ notify-failure 実行
 #   - demo-notify-canceled … パターン3: deploy が canceled のときだけ notify-canceled
 #     （手動キャンセルで検証。通常実行では deploy 成功のため notify-canceled はスキップ）
-#   - demo-notify-skipped … パターン4: main 以外で deploy が not_run のときだけ
-#     notify-skipped 実行（main では deploy 実行・notify-skipped は非実行）
-#   - demo-success-failed-only … 表の「成功・失敗どちらでも（スキップ時は除く）」:
+#   - demo-not-run-chain … パターン4: build が failed → deploy が not_run →
+#     fallback が deploy: not_run で実行
+#   - demo-branch-switched-postprocess … パターン5: 後処理ジョブ側に filter を
+#     付けてブランチで振り分け（main では deploy、非 main では notify-non-main）
+#   - demo-success-failed-* … 表の「成功・失敗どちらでも（スキップ時は除く）」:
 #     requires に [ success, failed ]
-#   - demo-requires-and-failed … 注記: 複数ジョブ requires は AND（両方 failed でのみ notify）
+#   - demo-requires-and-failed-* … 注記: 複数ジョブ requires は AND
+#     （両方 failed でのみ notify）
 #
 # 使い方:
 #   プロジェクトの .circleci/config.yml として置くか、パイプラインで本ファイルを参照。
@@ -37,6 +47,7 @@
 # 参考:
 #   https://circleci.com/changelog/terminal-jobs-released/
 #   https://circleci.com/docs/reference/configuration-reference/#requires
+#   https://circleci.com/docs/guides/orchestrate/jobs-steps/#job-status-transitions
 # =============================================================
 
 version: 2.1
@@ -93,21 +104,6 @@ jobs:
           name: "DB teardown（terminal: 上流がどう終わっても実行）"
           command: 'echo "teardown-db: run-tests が terminal になったため実行"'
 
-  # 上流を main のみに限定 → 非 main では not_run → terminal 後続で検証可能
-  run-tests-main-only:
-    executor: base-small
-    steps:
-      - run:
-          name: main のみのテスト（他ブランチでは not_run）
-          command: echo "run-tests-main-only on main"
-
-  teardown-after-skippable-upstream:
-    executor: base-small
-    steps:
-      - run:
-          name: "上流がスキップされても実行（requires: terminal）"
-          command: 'echo "teardown-after-skippable-upstream: terminal により実行"'
-
   # ------------------------------------------------------------------
   # パターン2: failed のみ通知
   # ------------------------------------------------------------------
@@ -161,28 +157,54 @@ jobs:
           command: 'echo "p3-notify-canceled: deploy が canceled のため実行"'
 
   # ------------------------------------------------------------------
-  # パターン4: not_run のみ（main 以外で deploy スキップ → 通知）
+  # パターン4: not_run（build が failed → deploy が not_run → fallback が実行）
   # ------------------------------------------------------------------
-  p4-build:
+  p4-build-fail:
+    executor: base-small
+    steps:
+      - run:
+          name: "build（デモ用に失敗）"
+          command: |
+            echo "p4-build-fail: 意図的に失敗"
+            exit 1
+
+  p4-deploy:
+    executor: base-small
+    steps:
+      - run:
+          name: "deploy（build に依存・build が failed のため依存未充足で not_run になる）"
+          command: echo "p4-deploy: 実行されるとすれば成功扱い（通常は not_run になるため到達しない）"
+
+  p4-fallback:
+    executor: base-small
+    steps:
+      - run:
+          name: "deploy が not_run のとき実行"
+          command: 'echo "p4-fallback: deploy が not_run のため実行"'
+
+  # ------------------------------------------------------------------
+  # パターン5: branch ごとに後処理を切り替える（filter を後処理ジョブに付ける）
+  # ------------------------------------------------------------------
+  p5-build:
     executor: base-small
     steps:
       - run:
           name: build（デモ）
-          command: echo "p4-build OK"
+          command: echo "p5-build OK"
 
-  p4-deploy-main-only:
+  p5-deploy-main-only:
     executor: base-small
     steps:
       - run:
           name: main のみ deploy
-          command: echo "p4-deploy-main-only on main"
+          command: echo "p5-deploy-main-only"
 
-  p4-notify-skipped:
+  p5-notify-non-main:
     executor: base-small
     steps:
       - run:
-          name: deploy がスキップされたときだけ通知
-          command: 'echo "p4-notify-skipped: deploy が not_run のため実行"'
+          name: "main 以外で実行される通知（後処理ジョブ側に ignore: main を付けて振り分け）"
+          command: 'echo "p5-notify-non-main: main 以外のブランチで実行"'
 
   # ------------------------------------------------------------------
   # 成功・失敗どちらでも（スキップ時は除く）: [ success, failed ]
@@ -277,24 +299,12 @@ workflows:
   # 旧来の5つ列挙は以下と同義（コメント参照）:
   #   requires:
   #     - run-tests: [ success, failed, canceled, unauthorized, not_run ]
-  # not_run が含まれる点が terminal の利点（スキップ時もクリーンアップ可能）
   demo-terminal-cleanup:
     jobs:
       - run-tests
       - teardown-db:
           requires:
             - run-tests: terminal
-
-  # パターン1補足: 上流が branch でスキップ → not_run でも terminal なら後続実行
-  demo-terminal-upstream-skipped:
-    jobs:
-      - run-tests-main-only:
-          filters:
-            branches:
-              only: main
-      - teardown-after-skippable-upstream:
-          requires:
-            - run-tests-main-only: terminal
 
   # パターン2: deploy 成功 → notify-failure は実行されない
   demo-notify-failure-success:
@@ -327,19 +337,36 @@ workflows:
           requires:
             - p3-deploy: canceled
 
-  # パターン4: main 以外は deploy not_run → notify-skipped のみ
-  demo-notify-skipped:
+  # パターン4: 依存未充足による not_run をフォロー
+  # build が failed → deploy は依存未充足で not_run → fallback が requires: deploy: not_run で実行
+  demo-not-run-chain:
     jobs:
-      - p4-build
-      - p4-deploy-main-only:
+      - p4-build-fail
+      - p4-deploy:
           requires:
-            - p4-build
+            - p4-build-fail
+      - p4-fallback:
+          requires:
+            - p4-deploy: not_run
+
+  # パターン5: branch filter を後処理ジョブに直接付けて振り分け
+  # main: build + deploy（notify-non-main は filter で除外）
+  # 非 main: build + notify-non-main（deploy は filter で除外）
+  demo-branch-switched-postprocess:
+    jobs:
+      - p5-build
+      - p5-deploy-main-only:
+          requires:
+            - p5-build
           filters:
             branches:
               only: main
-      - p4-notify-skipped:
+      - p5-notify-non-main:
           requires:
-            - p4-deploy-main-only: not_run
+            - p5-build
+          filters:
+            branches:
+              ignore: main
 
   # 記事の表: 成功・失敗どちらでも（スキップ時は除く）→ [ success, failed ]
   demo-success-failed-upstream-ok:
@@ -375,7 +402,7 @@ workflows:
             - and-job-a-fail: failed
             - and-job-b-fail: failed
 
-  # AND の対照: a のみ失敗・b は成功 → notify は実行されない 
+  # AND の対照: a のみ失敗・b は成功 → notify は実行されない
   demo-requires-and-failed-one-fails:
     jobs:
       - and-setup
