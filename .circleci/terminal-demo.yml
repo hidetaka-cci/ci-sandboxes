@@ -173,7 +173,7 @@ jobs:
     steps:
       - run:
           name: "deploy（build に依存・build が failed のため依存未充足で not_run になる）"
-          command: echo "p4-deploy: 実行されるとすれば成功扱い（通常は not_run になるため到達しない）"
+          command: 'echo "p4-deploy: 実行されるとすれば成功扱い（通常は not_run になるため到達しない）"'
 
   p4-fallback:
     executor: base-small
