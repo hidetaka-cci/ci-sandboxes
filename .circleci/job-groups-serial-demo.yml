@@ -1,0 +1,127 @@
+# =============================================================
+# Job Groups + serial-group による複数ジョブの原子直列化（検証デモ）
+# =============================================================
+#
+# 背景（記事ドラフトと整合）:
+#   main へのマージが連続すると、別パイプラインの deploy が先に走った処理と
+#   入れ替わり、smoke-test が意図しないバージョンを見るなどの race が起き得ます。
+#   単一ジョブ向け serial group だけでは複数ジョブのまとまりを一単位として
+#   ロックできませんが、job groups とワークフロー側での serial-group 適用により
+#   deploy → release を含むグループ単位で直列化できます。
+#
+#   キュー順序をジョブ内で明示する別案として Queue Orb (eddiewebb/queue)
+#   もありますが、本設定では org 機能の Job Groups で表現します。
+#
+# 含めるワークフロー（1本）:
+#   - job-groups-deploy-serial … build ‖ test → deploy-and-release（serial-group）
+#
+#     build と test は requires なしで並列入りします。deploy と release は
+#     job-groups でグループ化し、グループ呼び出しにだけ
+#     serial-group: << pipeline.project.slug >>/deploy-group を付与します。
+#
+# 使い方:
+#   1. 任意のリポジトリに .circleci/config.yml として配置するか、
+#      CircleCI プロジェクト設定でこのファイルをパイプラインが参照するよう設定する
+#   2. パイプラインを実行
+#
+# 検証との対応（手元確認用の目安）:
+#   · 連続で2パイプライン起動 → 後発の deploy-and-release が queued で待機し、
+#     先発の release 完了後に後発 deploy が動くこと
+#   · グループ内の deploy を Rerun → release も同時に rerun されること
+#     （Rerun job with SSH もグループ単位。「Rerun with SSH」での課金・挙動に留意）
+#   · グループ外の build を Rerun → deploy-and-release は影響を受けないこと
+#
+# ハマりどころ:
+#   · serial-group はグループ定義（job-groups ブロック）ではなく、ワークフローで
+#     グループ名を参照している箇所に書く。書き間違いは直列化が効かない原因に
+#   · 複数パイプライン検証では同一の serial-group 文字列（例: slug/deploy-group）
+#     になっていることを確認する
+#   · 同一 serial-group の待機は最大 5 時間でキャンセルされる。検証では deploy /
+#     release を短い sleep（本デモ約 30s）にしておく
+#   · ローカル編集には circleci-yaml-language-server が job-groups に対応
+#     （PIPE-5084）。補完が効かない場合は拡張を最新へ
+#
+# 前提:
+#   Job Groups は CircleCI のリリース状況と組織での提供に依存します。設定が
+#   パースされジョブグラフに鍵付き serial group のブロックが出るかで確認してください。
+#
+# 参考:
+#   https://circleci.com/docs/guides/orchestrate/controlling-serial-execution-across-your-organization/
+#     … serial groups の制限・Job Groups の説明
+#   https://circleci.com/docs/reference/configuration-reference/#job-groups … job-groups の構文
+#   https://circleci.com/changelog/job-groups-serialize-multiple-jobs-as-one-unit/
+#     … リリースノート・Rerun 挙動の注記
+# =============================================================
+#
+# レビュー用チェックリスト（プラン項目との整合）
+#   [ ] jobs に build / test / deploy / release が定義されている
+#   [ ] job-groups.deploy-and-release に deploy と release（release が deploy に requires）
+#   [ ] workflows で build・test が並列出りし、グループが両方 requires
+#   [ ] serial-group がワークフロー内 deploy-and-release の参照にのみ付く
+#   [ ] deploy / release が軽量（検証では長時間ジョブにしない）
+
+version: 2.1
+
+executors:
+  base-small:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+
+jobs:
+  build:
+    executor: base-small
+    steps:
+      - checkout
+      - run:
+          name: ビルド（デモ）
+          command: echo "build 完了（ジョブグループ外・単独 rerun 用）"
+
+  test:
+    executor: base-small
+    steps:
+      - checkout
+      - run:
+          name: テスト（デモ）
+          command: echo "test OK（ジョブグループ外）"
+
+  deploy:
+    executor: base-small
+    steps:
+      - checkout
+      - run:
+          name: deploy（デモ・短時間）
+          command: |
+            echo "deploy: 開始（検証では軽めの sleep で 5 時間ロックを避ける）"
+            sleep 30
+            echo "deploy: 完了"
+
+  release:
+    executor: base-small
+    steps:
+      - checkout
+      - run:
+          name: release（デモ・短時間）
+          command: |
+            echo "release: 開始"
+            sleep 30
+            echo "release: 完了"
+
+job-groups:
+  deploy-and-release:
+    jobs:
+      - deploy
+      - release:
+          requires:
+            - deploy
+
+workflows:
+  job-groups-deploy-serial:
+    jobs:
+      - build
+      - test
+      - deploy-and-release:
+          serial-group: << pipeline.project.slug >>/deploy-group
+          requires:
+            - build
+            - test
