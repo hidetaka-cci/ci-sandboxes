@@ -1,0 +1,116 @@
+# =============================================================
+# type: approval によるデプロイ前承認ゲートの検証デモ
+# =============================================================
+#
+# 背景（記事と整合）:
+#   CI が自動で本番デプロイまで走ると、予期しないリリースのリスクがある。
+#   type: approval をワークフローに置くと、手動承認まで on_hold で停止し、
+#   承認・キャンセルと承認者の記録は CircleCI 側に残る。
+#   承認者をセキュリティグループに限定するには、approval の downstream ジョブに
+#   restricted context を付与する（context 自体が空でも可）。
+#
+# approval ジョブの要点:
+#   · jobs セクションへの定義は不要。workflows 内で type: approval を宣言する
+#   · 後続ジョブは requires に approval ジョブ名（例: hold）を必ず書く
+#   · approval ジョブ名は jobs セクションの既存ジョブ名と衝突させない
+#     （同名があると type: approval として動作しない — 記事の NG 例）
+#
+# 含めるワークフロー:
+#   - build-test-deploy … 記事の基本例（build → test → hold → deploy）
+#   - build-test-deploy-restricted … deploy に restricted context を付与した例
+#     （Organization Settings > Contexts で production-deployers を restricted に
+#      作成し、Security タブでグループを指定してから承認制限を検証する）
+#
+# 使い方:
+#   1. CircleCI プロジェクトで本ファイルをパイプライン設定として参照する
+#      （GitHub App 連携で複数 YAML を使う場合は approval.yml を選択）
+#   2. パイプラインを実行
+#   3. build / test 完了後、hold が "Needs Approval" になることを UI で確認
+#   4. Approve で deploy が実行、Cancel で deploy は実行されない
+#
+# 期待される結果:
+#   - build-test-deploy: build → test 成功後 hold が on_hold。手動 Approve 後のみ deploy
+#   - build-test-deploy-restricted: 同上。承認可能メンバーは production-deployers
+#     context のセキュリティグループに限定（グループ外は deploy が unauthorized）
+#
+# 手動検証（restricted context）:
+#   · context 未作成の場合は Organization Settings で production-deployers を追加
+#   · API 承認: POST /api/v2/workflow/{workflow-id}/approve/{approval-request-id}
+#
+# 参考:
+#   https://circleci.com/docs/reference/configuration-reference/#job-type
+#   https://circleci.com/docs/guides/orchestrate/workflows/#holding-a-workflow-for-a-manual-approval
+#   https://circleci.com/docs/guides/security/contexts/#approve-jobs-that-use-restricted-contexts
+# =============================================================
+#
+# レビュー用チェックリスト（記事との整合）
+#   [ ] approval ジョブ（hold）が workflows のみで type: approval として宣言されている
+#   [ ] jobs に hold と同名のジョブ定義がない
+#   [ ] deploy の requires に hold が含まれる
+#   [ ] restricted 例では deploy に context: production-deployers がある
+#   [ ] jobs セクションの build / test / deploy は記事どおり通常ジョブとして定義
+
+version: 2.1
+
+executors:
+  node22-small:
+    docker:
+      - image: cimg/node:22.16
+    resource_class: small
+
+jobs:
+  build:
+    executor: node22-small
+    steps:
+      - checkout
+      - run:
+          name: ビルド（デモ）
+          command: echo "build 完了（デモ）"
+
+  test:
+    executor: node22-small
+    steps:
+      - checkout
+      - run:
+          name: テスト（デモ）
+          command: echo "npm test OK（デモ）"
+
+  deploy:
+    executor: node22-small
+    steps:
+      - checkout
+      - run:
+          name: デプロイ（デモ）
+          command: echo "deploy 完了（hold 承認後のみ実行）"
+
+workflows:
+  # 記事「type: approval の基本」
+  build-test-deploy:
+    jobs:
+      - build
+      - test:
+          requires:
+            - build
+      - hold:
+          type: approval
+          requires:
+            - test
+      - deploy:
+          requires:
+            - hold
+
+  # 記事「承認できるメンバーを制限する — restricted context」
+  build-test-deploy-restricted:
+    jobs:
+      - build
+      - test:
+          requires:
+            - build
+      - hold:
+          type: approval
+          requires:
+            - test
+      - deploy:
+          context: production-deployers
+          requires:
+            - hold
