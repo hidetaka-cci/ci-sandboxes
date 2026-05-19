@@ -1,0 +1,78 @@
+# =============================================================
+# Job Groups + serial-group（記事「最小サンプル」と同一構成の検証用）
+# =============================================================
+#
+# 目的:
+#   Qiita 記事「CircleCI Job Groups で複数ジョブをまとめて直列化する」に掲載した
+#   最小 config と同じ形で、CircleCI 上のパース・ワークフローグラフ（鍵付き
+#   serial-start / serial-end）・連続パイプライン時のキュー挙動を確認する。
+#
+# このリポジトリでは GitHub App 連携により複数の CircleCI 設定ファイルを
+# プロジェクト側で切り替え可能です。詳細コメント・チェックリスト付きの姉妹版:
+#   .circleci/job-groups-serial-demo.yml
+#
+# 手動検証の目安:
+#   · 同一ブランチでパイプラインを短時間に2回起動し、後発のグループが queued になること
+#   · グラフに serial-start（鍵）がグループ直前に現れること
+#   · グループ内ジョブの Rerun は UI 上「from start / with SSH」中心で、
+#     グループ単位で再実行される点（記事「Rerun の挙動に注意」）を確認
+#
+# 参考:
+#   https://circleci.com/docs/reference/configuration-reference/#job-groups
+#   https://circleci.com/changelog/job-groups-serialize-multiple-jobs-as-one-unit/
+# =============================================================
+
+version: 2.1
+
+executors:
+  base-small:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+
+jobs:
+  build:
+    executor: base-small
+    steps:
+      - checkout
+      - run: echo "build 完了"
+  test:
+    executor: base-small
+    steps:
+      - checkout
+      - run: echo "test OK"
+  deploy:
+    executor: base-small
+    steps:
+      - checkout
+      - run: |
+          echo "deploy 開始"
+          sleep 30
+          echo "deploy 完了"
+  release:
+    executor: base-small
+    steps:
+      - checkout
+      - run: |
+          echo "release 開始"
+          sleep 30
+          echo "release 完了"
+
+job-groups:
+  deploy-and-release:
+    jobs:
+      - deploy
+      - release:
+          requires:
+            - deploy
+
+workflows:
+  job-groups-deploy-serial:
+    jobs:
+      - build
+      - test
+      - deploy-and-release:
+          serial-group: << pipeline.project.slug >>/deploy-group
+          requires:
+            - build
+            - test
