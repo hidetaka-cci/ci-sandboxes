@@ -1,0 +1,119 @@
+# =============================================================
+# type: approval による手動承認ゲートのデモ用 CircleCI config
+# =============================================================
+#
+# 背景（記事ドラフトと整合）:
+#   CI が自動で本番デプロイまで走ると、予期しないリリースのリスクがある。
+#   自前スクリプトで承認フローを組むと承認者の記録が残りにくく、承認できる
+#   メンバーの管理も複雑になりがち。
+#
+#   `type: approval` をワークフローに挟むと、手動承認まで on_hold で停止し、
+#   承認・キャンセル・承認者・タイムスタンプが CircleCI に記録される。
+#   downstream ジョブに restricted context を付けると、承認できるメンバーを
+#   セキュリティグループで制限できる。
+#
+# 含めるワークフロー（2本）:
+#   - approval-basic … build → test → hold（type: approval）→ deploy
+#     write 権限を持つメンバーなら誰でも hold を承認できる基本パターン
+#   - approval-restricted-context … 同上だが deploy に restricted context を付与
+#     production-deployers グループのメンバーだけが hold を承認できる
+#
+# 使い方:
+#   1. 任意のリポジトリに .circleci/config.yml として配置するか、
+#      CircleCI プロジェクト設定でこのファイルを参照するパイプライン設定にする
+#   2. restricted context デモを試す場合は、Organization Settings > Contexts で
+#      `production-deployers` を作成し、Security タブで許可するグループを指定する
+#      （環境変数は不要。アクセス制御のためだけの空 context でもよい）
+#   3. パイプラインを実行し、hold が "Needs Approval" になることを確認
+#   4. hold を Approve → deploy が実行 / Cancel → deploy は実行されない
+#
+# 期待される結果:
+#   - approval-basic: test 成功後 hold が on_hold。承認後 deploy が echo で成功
+#   - approval-restricted-context: 同上。context グループ外が承認すると
+#     deploy が unauthorized になる
+#
+# 承認ジョブ名の衝突（NG 例・実行しない）:
+#   workflows 内で `build: type: approval` のように jobs セクションと同名を
+#   使うと approval として動作しない。hold / wait / approve-deploy など
+#   jobs に存在しないユニークな名前を付ける。
+#
+#   # NG:
+#   jobs:
+#     build: ...
+#   workflows:
+#     example:
+#       jobs:
+#         - build:
+#             type: approval   # jobs.build と同名のため無効
+#
+# API で承認する場合:
+#   POST /api/v2/workflow/{workflow-id}/approve/{approval-request-id}
+#
+# 参考:
+#   https://circleci.com/docs/reference/configuration-reference/#job-type
+#   https://circleci.com/docs/guides/orchestrate/workflows/#holding-a-workflow-for-a-manual-approval
+#   https://circleci.com/docs/guides/security/contexts/#approve-jobs-that-use-restricted-contexts
+# =============================================================
+
+version: 2.1
+
+executors:
+  base-small:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+
+jobs:
+  build:
+    executor: base-small
+    steps:
+      - checkout
+      - run:
+          name: ビルド（デモ）
+          command: echo "build 完了（デモ）"
+
+  test:
+    executor: base-small
+    steps:
+      - checkout
+      - run:
+          name: テスト（デモ）
+          command: echo "test OK（デモ）"
+
+  deploy:
+    executor: base-small
+    steps:
+      - checkout
+      - run:
+          name: デプロイ（デモ）
+          command: echo "deploy 完了（hold 承認後のみ実行）"
+
+workflows:
+  approval-basic:
+    jobs:
+      - build
+      - test:
+          requires:
+            - build
+      - hold:
+          type: approval
+          requires:
+            - test
+      - deploy:
+          requires:
+            - hold
+
+  approval-restricted-context:
+    jobs:
+      - build
+      - test:
+          requires:
+            - build
+      - hold:
+          type: approval
+          requires:
+            - test
+      - deploy:
+          context: production-deployers
+          requires:
+            - hold
