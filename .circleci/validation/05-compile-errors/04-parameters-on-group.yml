@@ -1,0 +1,20 @@
+# 検証5-4: グループ定義に parameters
+version: 2.1
+jobs:
+  deploy:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - run: echo deploy
+job-groups:
+  deploy-group:
+    parameters:
+      env:
+        type: string
+        default: staging
+    jobs:
+      - deploy
+workflows:
+  w:
+    jobs:
+      - deploy-group

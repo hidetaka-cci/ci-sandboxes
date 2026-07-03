@@ -1,0 +1,16 @@
+# 検証5-1: jobs と job-groups に同名
+version: 2.1
+jobs:
+  deploy:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - run: echo deploy
+job-groups:
+  deploy:
+    jobs:
+      - deploy
+workflows:
+  w:
+    jobs:
+      - deploy

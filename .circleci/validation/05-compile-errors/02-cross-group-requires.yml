@@ -1,0 +1,26 @@
+# 検証5-2: グループ内ジョブが別グループを requires
+version: 2.1
+jobs:
+  a:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - run: echo a
+  b:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - run: echo b
+job-groups:
+  group-a:
+    jobs:
+      - a
+  group-b:
+    jobs:
+      - b:
+          requires:
+            - group-a
+workflows:
+  w:
+    jobs:
+      - group-b

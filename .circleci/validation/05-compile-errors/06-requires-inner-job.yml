@@ -1,0 +1,24 @@
+# 検証5-6: workflow ジョブがグループ内個別ジョブを requires
+version: 2.1
+jobs:
+  deploy:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - run: echo deploy
+  notify:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - run: echo notify
+job-groups:
+  deploy-group:
+    jobs:
+      - deploy
+workflows:
+  w:
+    jobs:
+      - deploy-group
+      - notify:
+          requires:
+            - deploy

@@ -1,0 +1,19 @@
+# 検証5-3a: invocation に matrix
+version: 2.1
+jobs:
+  deploy:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - run: echo deploy
+job-groups:
+  deploy-group:
+    jobs:
+      - deploy
+workflows:
+  w:
+    jobs:
+      - deploy-group:
+          matrix:
+            parameters:
+              env: [staging, prod]

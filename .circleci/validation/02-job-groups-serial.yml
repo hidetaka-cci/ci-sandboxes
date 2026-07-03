@@ -1,0 +1,51 @@
+# 検証2: job-groups + serial-group でグループをアトミック直列化
+version: 2.1
+
+executors:
+  base-small:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+
+jobs:
+  build:
+    executor: base-small
+    steps:
+      - run: echo "build OK"
+
+  deploy:
+    executor: base-small
+    steps:
+      - run:
+          name: deploy（検証2・約25秒）
+          command: |
+            echo "deploy start pipeline=${CIRCLE_PIPELINE_NUMBER}"
+            sleep 25
+            echo "deploy done"
+
+  release:
+    executor: base-small
+    steps:
+      - run:
+          name: release（検証2・約25秒）
+          command: |
+            echo "release start pipeline=${CIRCLE_PIPELINE_NUMBER}"
+            sleep 25
+            echo "release done"
+
+job-groups:
+  deploy-and-release:
+    jobs:
+      - deploy
+      - release:
+          requires:
+            - deploy
+
+workflows:
+  verify-job-groups-serial:
+    jobs:
+      - build
+      - deploy-and-release:
+          serial-group: << pipeline.project.slug >>/deploy-group
+          requires:
+            - build

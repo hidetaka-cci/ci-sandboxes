@@ -1,0 +1,18 @@
+# 検証5-3d: invocation に post-steps
+version: 2.1
+jobs:
+  deploy:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - run: echo deploy
+job-groups:
+  deploy-group:
+    jobs:
+      - deploy
+workflows:
+  w:
+    jobs:
+      - deploy-group:
+          post-steps:
+            - run: echo post

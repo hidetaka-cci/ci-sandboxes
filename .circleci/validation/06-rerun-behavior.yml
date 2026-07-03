@@ -1,0 +1,51 @@
+# 検証6: group 内 1 ジョブ rerun → グループ全体 rerun
+version: 2.1
+
+executors:
+  base-small:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+
+jobs:
+  build:
+    executor: base-small
+    steps:
+      - run:
+          name: build（グループ外・単独 rerun 用）
+          command: echo "build pipeline=${CIRCLE_PIPELINE_NUMBER}"
+
+  deploy:
+    executor: base-small
+    steps:
+      - run:
+          name: deploy
+          command: |
+            echo "deploy pipeline=${CIRCLE_PIPELINE_NUMBER}"
+            sleep 15
+
+  release:
+    executor: base-small
+    steps:
+      - run:
+          name: release
+          command: |
+            echo "release pipeline=${CIRCLE_PIPELINE_NUMBER}"
+            sleep 15
+
+job-groups:
+  deploy-and-release:
+    jobs:
+      - deploy
+      - release:
+          requires:
+            - deploy
+
+workflows:
+  verify-rerun:
+    jobs:
+      - build
+      - deploy-and-release:
+          serial-group: << pipeline.project.slug >>/rerun-test-group
+          requires:
+            - build

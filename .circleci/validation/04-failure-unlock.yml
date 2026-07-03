@@ -1,0 +1,51 @@
+# 検証4: 失敗時も serial-group ロックが解放されること
+version: 2.1
+
+parameters:
+  fail-deploy:
+    type: boolean
+    default: false
+
+executors:
+  base-small:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+
+jobs:
+  deploy:
+    executor: base-small
+    steps:
+      - run:
+          name: deploy（意図的失敗可）
+          command: |
+            echo "deploy pipeline=${CIRCLE_PIPELINE_NUMBER} fail=<< pipeline.parameters.fail-deploy >>"
+            sleep 10
+            if [ "<< pipeline.parameters.fail-deploy >>" = "true" ]; then
+              echo "intentional failure for validation 4"
+              exit 1
+            fi
+            echo "deploy success"
+
+  release:
+    executor: base-small
+    steps:
+      - run:
+          name: release
+          command: |
+            sleep 10
+            echo "release done"
+
+job-groups:
+  deploy-and-release:
+    jobs:
+      - deploy
+      - release:
+          requires:
+            - deploy
+
+workflows:
+  verify-failure-unlock:
+    jobs:
+      - deploy-and-release:
+          serial-group: << pipeline.project.slug >>/failure-test-group

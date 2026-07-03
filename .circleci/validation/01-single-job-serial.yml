@@ -1,0 +1,33 @@
+# 検証1: 単一ジョブ serial-group の基本挙動（FIFO）
+version: 2.1
+
+executors:
+  base-small:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+
+jobs:
+  build:
+    executor: base-small
+    steps:
+      - run: echo "build OK"
+
+  deploy:
+    executor: base-small
+    steps:
+      - run:
+          name: deploy（検証1・約20秒）
+          command: |
+            echo "deploy start pipeline=${CIRCLE_PIPELINE_NUMBER} job=${CIRCLE_BUILD_NUM}"
+            sleep 20
+            echo "deploy done"
+
+workflows:
+  verify-single-serial:
+    jobs:
+      - build
+      - deploy:
+          serial-group: << pipeline.project.slug >>/production-deploys
+          requires:
+            - build

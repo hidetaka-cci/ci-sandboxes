@@ -1,0 +1,26 @@
+# 検証3: serial-group を pipeline.project.slug でプロジェクト単位にスコープ
+version: 2.1
+
+executors:
+  base-small:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+
+jobs:
+  deploy:
+    executor: base-small
+    steps:
+      - run:
+          name: deploy（検証3・約20秒）
+          command: |
+            echo "project=${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}"
+            echo "slug scope serial-group=<< pipeline.project.slug >>/deploy-group"
+            sleep 20
+            echo "deploy done"
+
+workflows:
+  verify-project-scope:
+    jobs:
+      - deploy:
+          serial-group: << pipeline.project.slug >>/deploy-group
