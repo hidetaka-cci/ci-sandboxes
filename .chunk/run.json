@@ -2,5 +2,10 @@
   "org_id": "0ffedcab-0755-4ea2-a76e-7f8a0b082494",
   "project_id": "23a96b91-80ac-47b3-b0a1-8467a3ea2c92",
   "org_type": "github",
-  "definitions": {}
+  "definitions": {
+    "chat": {
+      "definition_id": "3125aecb-d02a-4fa0-b113-39752e2f8b9a",
+      "default_branch": "main"
+    }
+  }
 }
