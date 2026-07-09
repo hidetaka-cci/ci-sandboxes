@@ -135,6 +135,7 @@ jobs:
             chunk task run \
               --definition "${CHUNK_TASK_DEFINITION}" \
               --prompt "このリポジトリのCIテストが失敗しています。原因を特定してコードを修正してください。" \
+              --new-branch \
               --json
 
   # -------------------------------------------------------
@@ -161,6 +162,7 @@ jobs:
             chunk task run \
               --definition "${CHUNK_TASK_DEFINITION}" \
               --prompt "${PROMPT}" \
+              --new-branch \
               --json
 
 workflows:
