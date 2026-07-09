@@ -157,12 +157,10 @@ jobs:
           command: |
             set -euo pipefail
             TEST_LOG=$(tail -80 /tmp/test-output.txt 2>/dev/null || echo "test output unavailable")
+            PROMPT=$(printf 'CIのテストが失敗しました。以下のテストログを参照して原因を特定し、コードを修正してください。テストのスキップや削除で通すことは禁止します。\n\nテストログ:\n%s' "${TEST_LOG}")
             chunk task run \
               --definition "${CHUNK_TASK_DEFINITION}" \
-              --prompt "CIのテストが失敗しました。以下のテストログを参照して原因を特定し、コードを修正してください。テストのスキップや削除で通すことは禁止します。
-
-テストログ:
-${TEST_LOG}" \
+              --prompt "${PROMPT}" \
               --json
 
 workflows:
