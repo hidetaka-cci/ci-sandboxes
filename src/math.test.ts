@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { add, multiply } from './math'
+import { multiply, add } from './math'
 
 describe('multiply', () => {
   it('multiplies two positive numbers', () => {
