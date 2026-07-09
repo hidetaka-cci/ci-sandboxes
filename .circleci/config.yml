@@ -1,0 +1,151 @@
+# =============================================================
+# chunk task run を job 失敗時（when: on_fail）に起動する検証用 config
+# =============================================================
+#
+# 検証対象:
+#   主張A … CI job 内で chunk task run を非対話実行し、on_fail で起動できる
+#   主張B … 起動したタスクが Cloud Chunk タスクとして Web UI に現れる
+#           （Task logs・プロバイダ設定の確認は手動）
+#
+# A1 結論（chunk CLI v0.7.107+ の help / ローカル確認）:
+#   · 非対話認証: 環境変数 CIRCLECI_TOKEN（別名 CIRCLE_TOKEN）でトークンを渡せる
+#   · 対話プロンプト抑制: CI 環境変数（CircleCI は CI=true を自動設定）
+#   · chunk auth set は不要（トークンは env のみで task run が動作）
+#   出典: `chunk task run --help` / chunk-cli docs/CLI.md
+#
+# 事前準備（CircleCI プロジェクト設定）:
+#   1. 組織で Chunk 有効化・Allow Chunk tasks ON・プロバイダ設定
+#   2. 環境変数 CIRCLECI_TOKEN … 個人 API トークン（All API scopes）
+#   3. 環境変数 CHUNK_TASK_DEFINITION … タスク定義の UUID
+#      （Chunk Web UI または `chunk task config` で取得。run.json の definitions が
+#       空でも UUID を直接 --definition に渡せば可）
+#   4. 本ファイルを .circleci/config.yml にコピーするか、パイプラインで参照
+#
+# ワークフロー:
+#   · chunk-task-on-fail … 意図的失敗 → on_fail で chunk task run（主張A）
+#   · chunk-task-success-control … 成功時 on_fail が発火しないこと（A4）
+#
+# 期待される結果:
+#   · on-fail ジョブ: メイン step 失敗後、on_fail step が run ID / pipeline ID を出力
+#   · success-control ジョブ: on_fail step はスキップされ成功のまま
+#
+# 参考:
+#   https://circleci.com/docs/guides/toolkit/how-to-use-chunk-cli/#trigger-chunk-tasks
+#   https://circleci.com/docs/guides/toolkit/install-and-configure-the-chunk-cli/
+# =============================================================
+
+version: 2.1
+
+parameters:
+  chunk_cli_version:
+    type: string
+    default: "0.7.109"
+  chunk_task_prompt:
+    type: string
+    default: >-
+      CI validation: this prompt was sent from a CircleCI on_fail step via chunk task run.
+      Reply with exactly one line: CI validation OK.
+
+executors:
+  base-small:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+
+commands:
+  install-chunk-cli:
+    description: Install chunk CLI from GitHub release (Linux x86_64 / arm64)
+    parameters:
+      version:
+        type: string
+        default: << pipeline.parameters.chunk_cli_version >>
+    steps:
+      - run:
+          name: Install chunk CLI
+          command: |
+            set -euo pipefail
+            CHUNK_VERSION="<< parameters.version >>"
+            ARCH="$(uname -m)"
+            case "$ARCH" in
+              x86_64) CHUNK_ARCH="x86_64" ;;
+              aarch64|arm64) CHUNK_ARCH="arm64" ;;
+              *)
+                echo "Unsupported architecture: $ARCH"
+                exit 1
+                ;;
+            esac
+            URL="https://github.com/CircleCI-Public/chunk-cli/releases/download/v${CHUNK_VERSION}/chunk-cli_Linux_${CHUNK_ARCH}.tar.gz"
+            echo "Downloading ${URL}"
+            curl -fsSL "$URL" | tar -xzf - -C /tmp
+            sudo mv /tmp/chunk /usr/local/bin/chunk
+            chunk --version
+
+  trigger-chunk-task-on-fail:
+    description: Run chunk task run (invoke individual steps with when on_fail)
+    parameters:
+      prompt:
+        type: string
+        default: << pipeline.parameters.chunk_task_prompt >>
+    steps:
+      - run:
+          name: Verify chunk auth (on_fail)
+          when: on_fail
+          command: |
+            set -euo pipefail
+            if [ -z "${CIRCLECI_TOKEN:-}" ] && [ -z "${CIRCLE_TOKEN:-}" ]; then
+              echo "CIRCLECI_TOKEN or CIRCLE_TOKEN must be set in project env vars"
+              exit 1
+            fi
+            chunk auth status
+      - run:
+          name: Trigger chunk task run (on_fail)
+          when: on_fail
+          command: |
+            set -euo pipefail
+            if [ -z "${CHUNK_TASK_DEFINITION:-}" ]; then
+              echo "CHUNK_TASK_DEFINITION must be set (task definition UUID)"
+              exit 1
+            fi
+            echo "Using definition: ${CHUNK_TASK_DEFINITION}"
+            chunk task run \
+              --definition "${CHUNK_TASK_DEFINITION}" \
+              --prompt "<< parameters.prompt >>" \
+              --json
+            # CircleCI ジョブでは CI=true が自動設定される（非対話モード）
+
+jobs:
+  on-fail-trigger:
+    executor: base-small
+    steps:
+      - checkout
+      - install-chunk-cli
+      - run:
+          name: Intentionally fail (to fire on_fail steps)
+          command: |
+            echo "Failing intentionally for chunk task on_fail validation"
+            exit 1
+      - trigger-chunk-task-on-fail
+
+  success-control:
+    executor: base-small
+    steps:
+      - checkout
+      - install-chunk-cli
+      - run:
+          name: Job succeeds intentionally
+          command: 'echo "success-control job completed successfully"'
+      - run:
+          name: on_fail step must NOT run on success
+          when: on_fail
+          command: |
+            echo "UNEXPECTED: on_fail step ran on a successful job"
+            exit 1
+
+workflows:
+  chunk-task-on-fail:
+    jobs:
+      - on-fail-trigger
+
+  chunk-task-success-control:
+    jobs:
+      - success-control
