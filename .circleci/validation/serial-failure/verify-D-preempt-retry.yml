@@ -1,0 +1,115 @@
+# 検証ステップ 7 / 8 リトライ用
+#
+# 【前回の設計ミス】
+# hold-lock を serial-group ジョブそのものに置いたため、先行パイプラインが
+# ロックを取得して実行中になった。追い越し（superseded → not_run）は
+# 「古いパイプラインの serial-start が、新しいパイプラインがロックを保持/待機中に
+# キューへ参加しようとした瞬間」に起きるため、この構成では再現しない。
+#
+# 【修正した設計】
+# serial-group ジョブの「手前」に遅延ジョブを置き、古いパイプライン側が
+# serial-start に到達する時刻を意図的に遅らせる。
+#
+# 実行手順（この順で2回起動する）:
+#   1回目（古いパイプライン番号 / 追い越される側）
+#        pre_delay = 180 , hold = 0 , gate = 0
+#   2回目（新しいパイプライン番号 / 追い越す側）※1回目の起動直後に投入
+#        pre_delay = 0   , hold = 300 , gate = 0
+#
+#   タイムライン: 2回目が t≒20s でロックを取得し t≒320s まで保持。
+#   1回目は t≒200s に serial-start へ到達し、そこで新しいパイプラインが
+#   走行中なのでキュー参加を拒否され not_run になる想定。
+#
+# 【観察してほしいこと（gate = 0 のとき）】
+#   - 1回目の serial-start が not_run になるか
+#   - 1回目の critical / after の status
+#   - 1回目のワークフロー表示: UI のラベルと、API の workflow status の値の両方
+#     （Success / skipped / failed / その他のどれか。ここが本命）
+#   - パイプライン一覧上でのバッジ表示
+#
+# 【gate = 1 で同じ2回を再実行したときに観察してほしいこと】
+#   - fail-if-critical-not-run が発火するか
+#   - 1回目のワークフローが failed になるか
+#
+# boolean 型パラメータは CLI から文字列で送られて型エラーになるため、
+# 意図的に整数パラメータ（0 / 1）で組んでいます。
+version: 2.1
+
+parameters:
+  pre_delay:
+    type: integer
+    default: 0
+  hold:
+    type: integer
+    default: 0
+  gate:
+    type: integer
+    default: 0
+
+jobs:
+  pre-delay:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run:
+          name: serial-start に到達する時刻をずらす
+          command: |
+            echo "sleeping << pipeline.parameters.pre_delay >>s before reaching serial-start"
+            sleep << pipeline.parameters.pre_delay >>
+
+  critical:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run:
+          name: ロックを保持する
+          command: |
+            echo "holding lock for << pipeline.parameters.hold >>s"
+            sleep << pipeline.parameters.hold >>
+      - run: echo "critical done"
+
+  after:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run: echo "after ran"
+
+  fail-if-critical-not-run:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run:
+          name: critical が走らなかったのでワークフローを失敗させる
+          command: |
+            echo "critical was skipped (not_run) - preempted by a newer pipeline"
+            exit 1
+
+workflows:
+  # gate = 0: ゲート無し。追い越された側の素の表示を観察する
+  preempt-nogate:
+    unless: << pipeline.parameters.gate >>
+    jobs:
+      - pre-delay
+      - critical:
+          serial-group: verify/preempt-retry
+          requires:
+            - pre-delay
+      - after:
+          requires:
+            - critical
+
+  # gate = 1: not_run ゲート有り。ワークフローを failed にできるか観察する
+  preempt-gate:
+    when: << pipeline.parameters.gate >>
+    jobs:
+      - pre-delay
+      - critical:
+          serial-group: verify/preempt-retry
+          requires:
+            - pre-delay
+      - after:
+          requires:
+            - critical
+      - fail-if-critical-not-run:
+          requires:
+            - critical: not_run
