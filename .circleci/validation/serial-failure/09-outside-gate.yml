@@ -1,0 +1,43 @@
+# 検証ステップ 9 用
+# serial group の外にゲートジョブを出す回避策が、意図通り後続を止めるかを見る。
+# サポート記事の例をキー名（ハイフン）に直したもの。
+#
+# 見るポイント:
+#   - guarded 失敗時に gate が走るか、gate が後続 deploy を止めるか
+#   - ステップ5（ゲート無し）との差分が出るか
+version: 2.1
+
+jobs:
+  guarded:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run:
+          name: serial-group 内のジョブ（意図的に失敗）
+          command: |
+            echo "intentional failure"
+            exit 1
+
+  gate:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run: echo "gate ran - guarded succeeded"
+
+  deploy:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run: echo "deployed"
+
+workflows:
+  outside-gate-check:
+    jobs:
+      - guarded:
+          serial-group: verify/outside-gate-check
+      - gate:
+          requires:
+            - guarded
+      - deploy:
+          requires:
+            - gate

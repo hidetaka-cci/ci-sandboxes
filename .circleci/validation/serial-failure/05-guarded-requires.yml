@@ -1,0 +1,56 @@
+# 検証ステップ 5 / 6 用
+# serial-group ジョブが失敗したとき、requires で依存する後続が走るかを見る。
+#
+# 実行方法:
+#   失敗ケース（ステップ5）: そのまま push（should_fail の既定値が true）
+#   成功ケース（ステップ6）: UI の Trigger Pipeline で should_fail を false にして実行
+#
+# 見るポイント:
+#   - downstream が走るか / not_run になるか / 表示されないか
+#   - serial-end（unlock ブロック）が走っているか
+#   - ワークフロー全体の最終ステータス（UI のラベルと API の値の両方）
+version: 2.1
+
+parameters:
+  should_fail:
+    type: boolean
+    default: true
+
+jobs:
+  build:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run: echo "build ok"
+
+  guarded:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run:
+          name: serial-group 内のジョブ（意図的に失敗させる対象）
+          command: |
+            if [ "<< pipeline.parameters.should_fail >>" = "true" ]; then
+              echo "intentional failure"
+              exit 1
+            fi
+            echo "guarded ok"
+
+  downstream:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run: echo "downstream ran"
+
+workflows:
+  serial-failure-check:
+    jobs:
+      - build
+      - guarded:
+          # 検証中はリテラル固定。pipeline value を使うとプロジェクト間で値が変わる
+          serial-group: verify/serial-failure-check
+          requires:
+            - build
+      - downstream:
+          requires:
+            - guarded

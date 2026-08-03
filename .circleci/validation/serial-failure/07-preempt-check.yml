@@ -1,0 +1,53 @@
+# 検証ステップ 7 / 8 用
+# 追い越し（superseded）を意図的に起こし、ワークフロー表示と not_run ゲートの効果を見る。
+#
+# 実行方法:
+#   1. この config を push（1本目）
+#   2. hold-lock が走り始めたのを確認したら、すぐに別コミットを push（2本目）
+#   3. 2本目がロックを取り、1本目の serial-start が not_run になるのを狙う
+#
+# 見るポイント:
+#   - 1本目の serial-start が not_run になるか
+#   - fail-if-deploy-not-run が走り、ワークフローが failed になるか
+#   - ゲートを外した場合の表示（Success / skipped / その他）と API の workflow status の値
+#
+# 先にゲート無しで 7 を確認し、その後 8 でゲートを有効化する運用が分かりやすい。
+version: 2.1
+
+jobs:
+  hold-lock:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run:
+          name: ロックを保持して追い越しの窓を作る
+          command: sleep 240
+
+  deploy:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run: echo "deployed"
+
+  fail-if-deploy-not-run:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run:
+          name: deploy が走らなかったのでワークフローを失敗させる
+          command: |
+            echo "deploy was skipped (not_run) - likely preempted by a newer pipeline"
+            exit 1
+
+workflows:
+  preempt-check:
+    jobs:
+      - hold-lock:
+          serial-group: verify/preempt-check
+      - deploy:
+          serial-group: verify/preempt-check-deploy
+          requires:
+            - hold-lock
+      - fail-if-deploy-not-run:
+          requires:
+            - deploy: not_run
