@@ -1,0 +1,68 @@
+# =============================================================
+# serial-group × continuation × tip-sync 検証（continuation）
+# =============================================================
+#
+# PR https://github.com/hidetaka-cci/qiita-circleci-japan-contents/pull/6
+# の publish_articles から serial-group と Sync to branch tip だけを抜き出し、
+# Qiita lint / token / SSH / push は載せていない。
+#
+# 確認観点:
+#   · ワークフロー graph に serial-group 開始／終了ブロックが出る
+#   · Sync to branch tip で先端一致なら無操作、ずれなら resetting 行
+#   · 後発が canceled ではなく queued → running（先発 not_run は公式 skip）
+# =============================================================
+version: 2.1
+
+parameters:
+  run-publish:
+    type: boolean
+    default: false
+  # ロック保持秒（連続起動の queued 観察用）。CLI から上書き可。
+  hold_seconds:
+    type: integer
+    default: 45
+
+jobs:
+  publish_articles:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+    steps:
+      - checkout
+      - run:
+          name: Sync to branch tip
+          # CIRCLE_SHA1 is the merge that triggered this pipeline. After
+          # waiting on serial-group (or on a slow setup), origin may have
+          # moved. Publish that tip, not the stale triggering SHA.
+          command: |
+            set -eux
+            echo "CIRCLE_SHA1=${CIRCLE_SHA1}"
+            echo "CIRCLE_BRANCH=${CIRCLE_BRANCH}"
+            git fetch origin "${CIRCLE_BRANCH}"
+            tip="$(git rev-parse "origin/${CIRCLE_BRANCH}")"
+            head="$(git rev-parse HEAD)"
+            echo "HEAD=${head}"
+            echo "origin/${CIRCLE_BRANCH}=${tip}"
+            if [ "$head" != "$tip" ]; then
+              echo "Pipeline SHA ${head} is behind origin/${CIRCLE_BRANCH} ${tip}; resetting to tip"
+              git checkout -B "${CIRCLE_BRANCH}" "origin/${CIRCLE_BRANCH}"
+              echo "After reset HEAD=$(git rev-parse HEAD)"
+            else
+              echo "Already at branch tip; no reset"
+            fi
+      - run:
+          name: Fake publish (hold serial-group lock)
+          command: |
+            set -eux
+            echo "Would publish tree $(git rev-parse HEAD) on ${CIRCLE_BRANCH}"
+            echo "Holding lock for << pipeline.parameters.hold_seconds >>s"
+            sleep << pipeline.parameters.hold_seconds >>
+            echo "Fake publish done"
+
+workflows:
+  publish:
+    when: << pipeline.parameters.run-publish >>
+    jobs:
+      - publish_articles:
+          # Scope by project slug so this queue stays inside this repo.
+          serial-group: << pipeline.project.slug >>/publish-articles-validation

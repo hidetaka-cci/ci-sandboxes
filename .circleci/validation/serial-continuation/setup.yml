@@ -1,0 +1,30 @@
+# =============================================================
+# serial-group × continuation × tip-sync 検証（setup / Dynamic Config）
+# =============================================================
+#
+# 記事検証プラン相当:
+#   path-filtering（setup）完了後にだけ continuation の serial-group がキューに入る。
+#   本番 Qiita 公開はしない。continue-config の publish は sleep + SHA ログのみ。
+#
+# Pipeline definition:
+#   config-file: .circleci/validation/serial-continuation/setup.yml
+# =============================================================
+version: 2.1
+
+setup: true
+
+orbs:
+  path-filtering: circleci/path-filtering@3.0.0
+
+workflows:
+  setup:
+    jobs:
+      - path-filtering/filter:
+          name: path-filter
+          base-revision: main
+          # 検証ブランチ単体 push でも continuation へ進める
+          same-base-run: true
+          config-path: .circleci/validation/serial-continuation/continue-config.yml
+          # 常に publish を回す（本番 Qiita の path 条件は再現しない）
+          mapping: |
+            .* run-publish true
