@@ -7,4 +7,4 @@ outputs:
   junit: test-reports/junit.xml
 options:
   test-impact-analysis: true
-  max-auto-rerun: 1
+  max-auto-rerun: 3
