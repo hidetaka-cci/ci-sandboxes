@@ -1,0 +1,9 @@
+---
+name: ci tests
+discover: npx vitest list --filesOnly
+run: npx vitest run --reporter=junit --outputFile="<< outputs.junit >>" --silent --bail 0 << test.atoms >>
+analysis: npx vitest run --coverage --coverage.reporter=lcovonly --coverage.reportsDirectory="$(dirname << outputs.lcov >>)" << test.atoms >> && mv "$(dirname << outputs.lcov >>)/lcov.info" "<< outputs.lcov >>"
+outputs:
+  junit: test-reports/junit.xml
+options:
+  test-impact-analysis: true

@@ -1,0 +1,59 @@
+# =============================================================
+# Smarter Testing / Test Impact Analysis 検証用 CircleCI config
+# =============================================================
+#
+# 検証ステップ:
+#   1. circleci testsuite doctor "ci tests"（全チェック pass）
+#   2. main で analysis（1回目）→ feature branch で selection（2回目）
+#   2b. feature branch で --analyze-tests=impacted を明示
+#
+version: 2.1
+
+executors:
+  node22-small:
+    docker:
+      - image: cimg/node:22.16
+    resource_class: small
+
+jobs:
+  doctor:
+    executor: node22-small
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: npm ci
+      - run:
+          name: Validate test suite configuration
+          command: circleci testsuite doctor "ci tests"
+
+  test:
+    executor: node22-small
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: npm ci
+      - run:
+          name: Run tests with Smarter Testing
+          command: |
+            # main: デフォルト（analysis + 全テスト実行）— ステップ2の1回目
+            # feature/tia-verify-selection: selectionのみ — ステップ2の2回目
+            # feature/tia-verify-analyze: --analyze-tests=impacted 明示 — ステップ2b
+            if [ "<< pipeline.git.branch >>" = "main" ]; then
+              circleci testsuite run "ci tests"
+            elif [ "<< pipeline.git.branch >>" = "feature/tia-verify-analyze" ]; then
+              circleci testsuite run "ci tests" --analyze-tests=impacted
+            else
+              circleci testsuite run "ci tests" --analyze-tests=none
+            fi
+      - store_test_results:
+          path: test-reports
+
+workflows:
+  smarter-testing-verify:
+    jobs:
+      - doctor
+      - test:
+          requires:
+            - doctor
