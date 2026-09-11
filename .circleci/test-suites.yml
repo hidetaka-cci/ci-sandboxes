@@ -4,3 +4,6 @@ discover: npx vitest list --filesOnly src/dts
 run: npx vitest run --reporter=junit --outputFile="<< outputs.junit >>" --silent --bail 0 << test.atoms >>
 outputs:
   junit: test-reports/junit.xml
+
+options:
+  dynamic-test-splitting: true
