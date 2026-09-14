@@ -1,11 +1,15 @@
 # =============================================================
-# Smarter Testing / Test Impact Analysis 検証用 CircleCI config
+# Smarter Testing 検証用 CircleCI config
 # =============================================================
 #
-# 検証ステップ:
+# TIA 検証:
 #   1. circleci testsuite doctor "ci tests"（全チェック pass）
 #   2. main で analysis（1回目）→ feature branch で selection（2回目）
 #   2b. feature branch で --analyze-tests=impacted を明示
+#
+# Auto-Rerun Failed Tests 検証:
+#   feature/auto-rerun-verify-pass … flaky テストが rerun 後に pass
+#   feature/auto-rerun-verify-fail … max-auto-rerun 超過後に job fail
 #
 version: 2.1
 
@@ -44,6 +48,10 @@ jobs:
               circleci testsuite run "ci tests"
             elif [ "<< pipeline.git.branch >>" = "feature/tia-verify-analyze" ]; then
               circleci testsuite run "ci tests" --analyze-tests=impacted
+            elif [ "<< pipeline.git.branch >>" = "feature/auto-rerun-verify-pass" ]; then
+              AUTO_RERUN_FLAKY_TEST=1 circleci testsuite run "ci tests" --analyze-tests=none
+            elif [ "<< pipeline.git.branch >>" = "feature/auto-rerun-verify-fail" ]; then
+              AUTO_RERUN_FAIL_TEST=1 circleci testsuite run "ci tests" --analyze-tests=none
             else
               circleci testsuite run "ci tests" --analyze-tests=none
             fi

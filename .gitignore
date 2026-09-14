@@ -24,3 +24,5 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+test-reports/
+.circleci/state-cursor/
