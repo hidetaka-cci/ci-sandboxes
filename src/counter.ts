@@ -6,6 +6,10 @@ export function decrement(count: number): number {
   return count - 1
 }
 
+export function multiply(count: number, factor: number): number {
+  return count * factor
+}
+
 export function setupCounter(incrementEl: HTMLButtonElement, decrementEl: HTMLButtonElement, displayEl: HTMLElement) {
   let counter = 0
   const render = () => {
