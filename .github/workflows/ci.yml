@@ -7,13 +7,14 @@ jobs:
       RUNNER_TRACKING_ID: github_circleci-manual-test
     steps:
       - run: echo "GITHUB_RUN_ID=${{ github.run_number }}" >> "$GITHUB_ENV"
-      - run: |
-          echo "RUN_ID=$GITHUB_RUN_ID ATTEMPT=$GITHUB_RUN_ATTEMPT TRACKING=$RUNNER_TRACKING_ID"
-          uname -r
       - uses: cicd-sensor/cicd-sensor-action@6511eb44c91d71b2b93d71193b1bf2cb18352f66 # v0.0.38
         with:
           enable-html-report: false
           enable-attestation-artifact: false
-      - run: curl -fsS https://example.com -o /dev/null
+      - id: curl
+        continue-on-error: true
+        run: curl -fsS https://example.com -o /dev/null
       - if: always()
-        run: sudo journalctl -u cicd-sensor-agent --no-pager | tail -80
+        run: |
+          echo "curl outcome=${{ steps.curl.outcome }}"
+          sudo journalctl -u cicd-sensor-agent --no-pager | tail -80
