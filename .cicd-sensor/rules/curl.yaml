@@ -1,0 +1,8 @@
+rule_sets:
+  - ruleset_id: circleci-probe/curl
+    rules:
+      - rule_id: curl_exec
+        rule_name: "curl executed"
+        event_type: process_exec
+        condition: process.exec_path.endsWith("/curl")
+        action: terminate
