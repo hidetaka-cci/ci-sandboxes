@@ -1,19 +1,20 @@
-name: ci-sandboxes test
-
-on:
-  push:
-    branches: [main, cursor/gha-yaml-verify-77c8]
-  workflow_dispatch:
-
+name: sensor-min
+on: workflow_dispatch
 jobs:
-  test:
-    runs-on: ubuntu-22.04
+  min:
+    runs-on: ubuntu-latest
+    env:
+      RUNNER_TRACKING_ID: github_circleci-manual-test
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - run: echo "GITHUB_RUN_ID=${{ github.run_number }}" >> "$GITHUB_ENV"
+      - uses: cicd-sensor/cicd-sensor-action@6511eb44c91d71b2b93d71193b1bf2cb18352f66 # v0.0.38
         with:
-          node-version: '22'
-      - run: npm ci
-      - run: npm test
-      - name: Verify marker
-        run: echo "GHA workflow executed on CircleCI infrastructure"
+          enable-html-report: false
+          enable-attestation-artifact: false
+      - id: curl
+        continue-on-error: true
+        run: curl -fsS https://example.com -o /dev/null
+      - if: always()
+        run: |
+          echo "curl outcome=${{ steps.curl.outcome }}"
+          sudo journalctl -u cicd-sensor-agent --no-pager | tail -80
