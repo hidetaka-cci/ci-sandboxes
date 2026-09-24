@@ -3,13 +3,17 @@ on: workflow_dispatch
 jobs:
   min:
     runs-on: ubuntu-latest
+    env:
+      RUNNER_TRACKING_ID: github_circleci-manual-test
+      GITHUB_RUN_ID: "1"
     steps:
       - run: |
+          echo "RUN_ID=$GITHUB_RUN_ID ATTEMPT=$GITHUB_RUN_ATTEMPT TRACKING=$RUNNER_TRACKING_ID"
           uname -r
-          ls -l /sys/kernel/btf/vmlinux
-          sudo -n true && echo SUDO_OK
       - uses: cicd-sensor/cicd-sensor-action@6511eb44c91d71b2b93d71193b1bf2cb18352f66 # v0.0.38
         with:
           enable-html-report: false
           enable-attestation-artifact: false
       - run: curl -fsS https://example.com -o /dev/null
+      - if: always()
+        run: sudo journalctl -u cicd-sensor-agent --no-pager | tail -80
