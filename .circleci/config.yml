@@ -1,11 +1,14 @@
 # =============================================================
-# Smarter Testing / Test Impact Analysis 検証用 CircleCI config
+# Smarter Testing / Dynamic Test Splitting 検証用 CircleCI config
 # =============================================================
 #
 # 検証ステップ:
 #   1. circleci testsuite doctor "ci tests"（全チェック pass）
-#   2. main で analysis（1回目）→ feature branch で selection（2回目）
-#   2b. feature branch で --analyze-tests=impacted を明示
+#   2. feature/dts-verify-p1 … parallelism=1（ベースライン）
+#   3. feature/dts-verify-static … parallelism=4, 静的分割
+#   4. feature/dts-verify-dynamic … parallelism=4 + dynamic-test-splitting
+#   5. feature/dts-verify-dynamic 再実行 … 学習フェーズ比較
+#   6. feature/dts-verify-invalid … doctor 失敗確認（p1 + dynamic）
 #
 version: 2.1
 
@@ -15,45 +18,100 @@ executors:
       - image: cimg/node:22.16
     resource_class: small
 
+commands:
+  install-deps:
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: npm ci
+
 jobs:
   doctor:
     executor: node22-small
     steps:
-      - checkout
-      - run:
-          name: Install dependencies
-          command: npm ci
+      - install-deps
       - run:
           name: Validate test suite configuration
           command: circleci testsuite doctor "ci tests"
 
-  test:
+  test-p1:
     executor: node22-small
     steps:
-      - checkout
+      - install-deps
       - run:
-          name: Install dependencies
-          command: npm ci
+          name: Run tests (parallelism=1 baseline)
+          command: circleci testsuite run "ci tests" --analyze-tests=none
+      - store_test_results:
+          path: test-reports
+
+  test-static:
+    executor: node22-small
+    parallelism: 4
+    steps:
+      - install-deps
       - run:
-          name: Run tests with Smarter Testing
-          command: |
-            # main: デフォルト（analysis + 全テスト実行）— ステップ2の1回目
-            # feature/tia-verify-selection: selectionのみ — ステップ2の2回目
-            # feature/tia-verify-analyze: --analyze-tests=impacted 明示 — ステップ2b
-            if [ "<< pipeline.git.branch >>" = "main" ]; then
-              circleci testsuite run "ci tests"
-            elif [ "<< pipeline.git.branch >>" = "feature/tia-verify-analyze" ]; then
-              circleci testsuite run "ci tests" --analyze-tests=impacted
-            else
-              circleci testsuite run "ci tests" --analyze-tests=none
-            fi
+          name: Run tests (static split, parallelism=4)
+          command: circleci testsuite run "ci tests" --analyze-tests=none
+      - store_test_results:
+          path: test-reports
+
+  test-dynamic:
+    executor: node22-small
+    parallelism: 4
+    steps:
+      - install-deps
+      - run:
+          name: Run tests (dynamic split, parallelism=4)
+          command: circleci testsuite run "ci tests" --analyze-tests=none
       - store_test_results:
           path: test-reports
 
 workflows:
-  smarter-testing-verify:
+  dts-verify-setup:
     jobs:
-      - doctor
-      - test:
+      - doctor:
+          filters:
+            branches:
+              only:
+                - feature/dts-verify-setup
+                - feature/dts-verify-invalid
+
+  dts-verify-p1:
+    jobs:
+      - doctor:
+          filters:
+            branches:
+              only: feature/dts-verify-p1
+      - test-p1:
           requires:
             - doctor
+          filters:
+            branches:
+              only: feature/dts-verify-p1
+
+  dts-verify-static:
+    jobs:
+      - doctor:
+          filters:
+            branches:
+              only: feature/dts-verify-static
+      - test-static:
+          requires:
+            - doctor
+          filters:
+            branches:
+              only: feature/dts-verify-static
+
+  dts-verify-dynamic:
+    jobs:
+      - doctor:
+          filters:
+            branches:
+              only: feature/dts-verify-dynamic
+      - test-dynamic:
+          requires:
+            - doctor
+          filters:
+            branches:
+              only: feature/dts-verify-dynamic
