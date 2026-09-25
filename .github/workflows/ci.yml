@@ -1,5 +1,8 @@
 name: sensor-min
-on: workflow_dispatch
+on:
+  push:
+    branches: [cursor/cicd-sensor-rerun-a806]
+  workflow_dispatch:
 jobs:
   min:
     runs-on: ubuntu-latest
