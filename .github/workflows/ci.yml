@@ -12,7 +12,6 @@ jobs:
           enable-html-report: false
           enable-attestation-artifact: false
       - id: curl
-        continue-on-error: true
         run: curl -fsS https://example.com -o /dev/null
       - if: always()
         run: |
