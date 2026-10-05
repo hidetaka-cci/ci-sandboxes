@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { increment, decrement } from './counter'
+import { increment, decrement, multiply } from './counter'
 
 describe('increment', () => {
   it('0 から 1 に増える', () => {
@@ -22,5 +22,23 @@ describe('decrement', () => {
 
   it('負の値にもなれる', () => {
     expect(decrement(0)).toBe(-1)
+  })
+})
+
+describe('multiply', () => {
+  it('0 に何を掛けても 0 になる', () => {
+    expect(multiply(0, 5)).toBe(0)
+  })
+
+  it('任意の値に 1 を掛けると変わらない', () => {
+    expect(multiply(5, 1)).toBe(5)
+  })
+
+  it('任意の値に倍数を掛けた結果を返す', () => {
+    expect(multiply(3, 4)).toBe(12)
+  })
+
+  it('負の倍数を掛けると符号が反転する', () => {
+    expect(multiply(5, -2)).toBe(-10)
   })
 })
