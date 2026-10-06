@@ -1,0 +1,201 @@
+# Strands Decider 2B 配布方式比較（A=HF毎回 / B=独自イメージ / C=restore_cache）
+# Pipeline definition から参照。main の .circleci/config.yml は変更しない。
+version: 2.1
+
+parameters:
+  phase:
+    type: enum
+    enum: ["step0", "prepare", "measure"]
+    default: "step0"
+    description: "step0=前提確認 / prepare=BイメージとCキャッシュ準備 / measure=A/B/C並列計測"
+
+executors:
+  python-xlarge:
+    docker:
+      - image: cimg/python:3.12
+    resource_class: xlarge
+    working_directory: ~/project
+    environment:
+      VENV_DIR: /home/circleci/venv
+      HF_HOME: /home/circleci/.cache/huggingface
+      TRANSFORMERS_CACHE: /home/circleci/.cache/huggingface/hub
+      BENCH_OUT: /home/circleci/project/bench-out
+
+  baked-xlarge:
+    docker:
+      # prepare ジョブが同タグへ push。ttl.sh は認証不要の一時レジストリ。
+      - image: ttl.sh/hidetaka-cci-strands-decider-bench:7d
+    resource_class: xlarge
+    working_directory: ~/project
+    environment:
+      VENV_DIR: /home/circleci/venv
+      HF_HOME: /home/circleci/.cache/huggingface
+      TRANSFORMERS_CACHE: /home/circleci/.cache/huggingface/hub
+      BENCH_OUT: /home/circleci/project/bench-out
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+
+commands:
+  install-cpu-deps:
+    steps:
+      - run:
+          name: Install CPU torch + strands-decider
+          no_output_timeout: 30m
+          command: bash validation/strands-decider-distro/scripts/install_cpu.sh
+
+  run-timed-bench:
+    parameters:
+      method:
+        type: string
+    steps:
+      - run:
+          name: Run timed bench (<< parameters.method >>)
+          no_output_timeout: 45m
+          environment:
+            METHOD: << parameters.method >>
+          command: |
+            set -euo pipefail
+            # shellcheck disable=SC1091
+            source validation/strands-decider-distro/versions.env
+            export DECIDER_HUB_ID BASE_MODEL_ID BASE_MODEL_REVISION STRANDS_DECIDER_VERSION
+            export PATH="${VENV_DIR}/bin:${PATH}"
+            mkdir -p "${BENCH_OUT}"
+            /usr/bin/time -v python validation/strands-decider-distro/scripts/run_bench.py \
+              2> >(tee "${BENCH_OUT}/time-v-<< parameters.method >>.txt" >&2)
+      - store_artifacts:
+          path: bench-out
+
+jobs:
+  step0-preflight:
+    executor: python-xlarge
+    steps:
+      - checkout
+      - install-cpu-deps
+      - run:
+          name: Step 0 — peak memory + offline revision pin
+          no_output_timeout: 45m
+          command: |
+            set -euo pipefail
+            export PATH="${VENV_DIR}/bin:${PATH}"
+            mkdir -p "${BENCH_OUT}"
+            /usr/bin/time -v python validation/strands-decider-distro/scripts/step0_preflight.py \
+              2> >(tee "${BENCH_OUT}/time-v-step0.txt" >&2)
+      - store_artifacts:
+          path: bench-out
+
+  prepare-cache-c:
+    executor: python-xlarge
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - strands-decider-cache-{{ checksum "validation/strands-decider-distro/versions.env" }}
+      - install-cpu-deps
+      - run:
+          name: Prefetch Hugging Face caches (not timed)
+          no_output_timeout: 45m
+          command: |
+            set -euo pipefail
+            export PATH="${VENV_DIR}/bin:${PATH}"
+            # shellcheck disable=SC1091
+            set -a
+            source validation/strands-decider-distro/versions.env
+            set +a
+            python - <<'PY'
+            import os
+            from huggingface_hub import snapshot_download
+            snapshot_download(os.environ["DECIDER_HUB_ID"])
+            snapshot_download(os.environ["BASE_MODEL_ID"], revision=os.environ["BASE_MODEL_REVISION"])
+            print("prefetch ok")
+            PY
+            du -sh "${HF_HOME}" "${VENV_DIR}" || true
+      - save_cache:
+          key: strands-decider-cache-{{ checksum "validation/strands-decider-distro/versions.env" }}
+          paths:
+            - /home/circleci/venv
+            - /home/circleci/.cache/huggingface
+
+  prepare-image-b:
+    docker:
+      - image: cimg/base:stable
+    resource_class: xlarge
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run:
+          name: Build and push baked image to ttl.sh (DLC on; not timed for comparison)
+          no_output_timeout: 60m
+          command: |
+            set -euo pipefail
+            # shellcheck disable=SC1091
+            source validation/strands-decider-distro/versions.env
+            IMAGE="${B_IMAGE_REPO}:${B_IMAGE_TAG}"
+            echo "Building ${IMAGE}"
+            docker build \
+              --build-arg STRANDS_DECIDER_VERSION="${STRANDS_DECIDER_VERSION}" \
+              --build-arg DECIDER_HUB_ID="${DECIDER_HUB_ID}" \
+              --build-arg BASE_MODEL_ID="${BASE_MODEL_ID}" \
+              --build-arg BASE_MODEL_REVISION="${BASE_MODEL_REVISION}" \
+              -t "${IMAGE}" \
+              -f validation/strands-decider-distro/docker/Dockerfile \
+              validation/strands-decider-distro/docker
+            docker push "${IMAGE}"
+            docker image ls "${IMAGE}"
+
+  measure-a:
+    executor: python-xlarge
+    steps:
+      - checkout
+      - run:
+          name: Ensure cold HF cache (baseline A)
+          command: rm -rf "${HF_HOME}" || true
+      - install-cpu-deps
+      - run-timed-bench:
+          method: A
+
+  measure-b:
+    executor: baked-xlarge
+    steps:
+      - checkout
+      - run-timed-bench:
+          method: B
+
+  measure-c:
+    executor: python-xlarge
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - strands-decider-cache-{{ checksum "validation/strands-decider-distro/versions.env" }}
+      - run:
+          name: Verify restored venv
+          command: |
+            set -euo pipefail
+            test -x "${VENV_DIR}/bin/python"
+            export PATH="${VENV_DIR}/bin:${PATH}"
+            python -c "import strands_decider; print(strands_decider.__version__)"
+      - run-timed-bench:
+          method: C
+
+workflows:
+  step0:
+    when:
+      equal: [step0, << pipeline.parameters.phase >>]
+    jobs:
+      - step0-preflight
+
+  prepare:
+    when:
+      equal: [prepare, << pipeline.parameters.phase >>]
+    jobs:
+      - prepare-cache-c
+      - prepare-image-b
+
+  measure:
+    when:
+      equal: [measure, << pipeline.parameters.phase >>]
+    jobs:
+      - measure-a
+      - measure-b
+      - measure-c

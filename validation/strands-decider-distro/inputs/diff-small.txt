@@ -1,0 +1,58 @@
+diff --git a/app/service.py b/app/service.py
+index 1111111..2222222 100644
+--- a/app/service.py
++++ b/app/service.py
+@@ -1,12 +1,18 @@
++"""small-diff: routing and risk signals for CI test selection."""
++from dataclasses import dataclass
++from typing import Iterable
++
++@dataclass(frozen=True)
++class ChangeSignal:
++    path: str
++    touches_runtime: bool
++    touches_tests: bool
++    risk: str
++
++def classify_path(path: str) -> ChangeSignal:
++    runtime = path.startswith("src/") or path.startswith("app/")
++    tests = "test" in path
++    risk = "high" if runtime and not tests else "medium" if runtime else "low"
++    return ChangeSignal(path, runtime, tests, risk)
++
++def select_suites(signals: Iterable[ChangeSignal]) -> list[str]:
++    suites = []
++    if any(s.touches_runtime for s in signals):
++        suites.append("unit")
++    if any(s.risk == "high" for s in signals):
++        suites.append("integration")
++    if any(s.path.endswith(".yml") for s in signals):
++        suites.append("config")
++    return suites or ["smoke"]
++
++# synthetic change block 0
++def helper_0_0(value: int) -> int:
++    """Adjust routing weight for path cluster 0.0."""
++    return 0 if value < 0 else value + 0 + 0
++
++def helper_0_1(value: int) -> int:
++    """Adjust routing weight for path cluster 0.1."""
++    return 0 if value < 0 else value + 0 + 1
++
++def helper_0_2(value: int) -> int:
++    """Adjust routing weight for path cluster 0.2."""
++    return 0 if value < 0 else value + 0 + 2
++
++# synthetic change block 1
++def helper_1_0(value: int) -> int:
++    """Adjust routing weight for path cluster 1.0."""
++    return 0 if value < 0 else value + 1 + 0
++
++def helper_1_1(value: int) -> int:
++    """Adjust routing weight for path cluster 1.1."""
++    return 0 if value < 0 else value + 1 + 1
++
++def helper_1_2(value: int) -> int:
++    """Adjust routing weight for path cluster 1.2."""
++    return 0 if value < 0 else value + 1 + 2
++
