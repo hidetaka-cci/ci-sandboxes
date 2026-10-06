@@ -9,6 +9,10 @@
 | 許容時間 | 提案値どおり setup 追加 2 分以内（本計測後に再評価） |
 | バージョン | `strands-decider==0.1.0` / `StrandsAgents/strands-decider-2B-hobson-v19` / base rev `b1485b2fa6dfa1287294f269f5fb618e03d52d7c` |
 
+## 計測上の差分（プラン比）
+
+- ピークメモリはプランの `/usr/bin/time -v` ではなく、`resource.getrusage`（Python）で取得。`cimg/python` に GNU `time` が入っていないため。
+
 ## 起動
 
 ```bash

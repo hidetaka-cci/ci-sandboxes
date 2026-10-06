@@ -56,12 +56,13 @@ commands:
           command: |
             set -euo pipefail
             # shellcheck disable=SC1091
+            set -a
             source validation/strands-decider-distro/versions.env
-            export DECIDER_HUB_ID BASE_MODEL_ID BASE_MODEL_REVISION STRANDS_DECIDER_VERSION
+            set +a
             export PATH="${VENV_DIR}/bin:${PATH}"
             mkdir -p "${BENCH_OUT}"
-            /usr/bin/time -v python validation/strands-decider-distro/scripts/run_bench.py \
-              2> >(tee "${BENCH_OUT}/time-v-<< parameters.method >>.txt" >&2)
+            # cimg には /usr/bin/time が無いため、peak RSS は run_bench.py 内の resource で測る
+            python validation/strands-decider-distro/scripts/run_bench.py
       - store_artifacts:
           path: bench-out
 
@@ -78,8 +79,8 @@ jobs:
             set -euo pipefail
             export PATH="${VENV_DIR}/bin:${PATH}"
             mkdir -p "${BENCH_OUT}"
-            /usr/bin/time -v python validation/strands-decider-distro/scripts/step0_preflight.py \
-              2> >(tee "${BENCH_OUT}/time-v-step0.txt" >&2)
+            # cimg には /usr/bin/time が無いため、peak RSS は step0_preflight.py 内の resource で測る
+            python validation/strands-decider-distro/scripts/step0_preflight.py
       - store_artifacts:
           path: bench-out
 
