@@ -1,0 +1,213 @@
+{
+  "confidence_rule": "choice.confidence >= 0.9 (no noul p-shortcut)",
+  "threshold": 0.9,
+  "decider_revision": "bb282d786bc251fd4e3068de3ada9ddbb38127cd",
+  "n": {
+    "total": 11,
+    "correct": 10,
+    "confident": 0,
+    "confident_correct": 0,
+    "confident_wrong": 0
+  },
+  "accuracy": 0.9091,
+  "high_conf_count": 0,
+  "high_conf_accuracy": null,
+  "unsafe_skips": 0,
+  "ts_accuracy": 1.0,
+  "yml_accuracy": 0.8,
+  "per_case": [
+    {
+      "id": "ts-comment-only.diff",
+      "path": "src/math.ts",
+      "gold": "cosmetic",
+      "predicted": "cosmetic",
+      "correct": true,
+      "confidence": 0.3082,
+      "confident": false,
+      "act_without_check": false,
+      "would_skip_if_cosmetic_confident": false,
+      "unsafe_skip": false,
+      "probabilities": {
+        "cosmetic": 0.6541,
+        "behavioral": 0.3459
+      },
+      "infer_seconds": 1.221
+    },
+    {
+      "id": "ts-guard-clause.diff",
+      "path": "src/math.ts",
+      "gold": "behavioral",
+      "predicted": "behavioral",
+      "correct": true,
+      "confidence": 0.5387,
+      "confident": false,
+      "act_without_check": false,
+      "would_skip_if_cosmetic_confident": false,
+      "unsafe_skip": false,
+      "probabilities": {
+        "cosmetic": 0.2306,
+        "behavioral": 0.7694
+      },
+      "infer_seconds": 1.424
+    },
+    {
+      "id": "ts-increment-step.diff",
+      "path": "src/counter.ts",
+      "gold": "behavioral",
+      "predicted": "behavioral",
+      "correct": true,
+      "confidence": 0.6491,
+      "confident": false,
+      "act_without_check": false,
+      "would_skip_if_cosmetic_confident": false,
+      "unsafe_skip": false,
+      "probabilities": {
+        "cosmetic": 0.1755,
+        "behavioral": 0.8245
+      },
+      "infer_seconds": 1.156
+    },
+    {
+      "id": "ts-multiply-bug.diff",
+      "path": "src/math.ts",
+      "gold": "behavioral",
+      "predicted": "behavioral",
+      "correct": true,
+      "confidence": 0.517,
+      "confident": false,
+      "act_without_check": false,
+      "would_skip_if_cosmetic_confident": false,
+      "unsafe_skip": false,
+      "probabilities": {
+        "cosmetic": 0.2415,
+        "behavioral": 0.7585
+      },
+      "infer_seconds": 1.208
+    },
+    {
+      "id": "ts-rename-only.diff",
+      "path": "src/math.ts",
+      "gold": "cosmetic",
+      "predicted": "cosmetic",
+      "correct": true,
+      "confidence": 0.2202,
+      "confident": false,
+      "act_without_check": false,
+      "would_skip_if_cosmetic_confident": false,
+      "unsafe_skip": false,
+      "probabilities": {
+        "cosmetic": 0.6101,
+        "behavioral": 0.3899
+      },
+      "infer_seconds": 1.693
+    },
+    {
+      "id": "ts-whitespace.diff",
+      "path": "src/math.ts",
+      "gold": "cosmetic",
+      "predicted": "cosmetic",
+      "correct": true,
+      "confidence": 0.1811,
+      "confident": false,
+      "act_without_check": false,
+      "would_skip_if_cosmetic_confident": false,
+      "unsafe_skip": false,
+      "probabilities": {
+        "cosmetic": 0.5906,
+        "behavioral": 0.4094
+      },
+      "infer_seconds": 2.421
+    },
+    {
+      "id": "yml-comment.diff",
+      "path": ".circleci/config.yml",
+      "gold": "cosmetic",
+      "predicted": "structural",
+      "correct": false,
+      "confidence": 0.208,
+      "confident": false,
+      "act_without_check": false,
+      "would_skip_if_cosmetic_confident": false,
+      "unsafe_skip": false,
+      "probabilities": {
+        "cosmetic": 0.3872,
+        "scalar": 0.1408,
+        "structural": 0.472
+      },
+      "infer_seconds": 2.384
+    },
+    {
+      "id": "yml-drop-requires.diff",
+      "path": ".circleci/config.yml",
+      "gold": "structural",
+      "predicted": "structural",
+      "correct": true,
+      "confidence": 0.6713,
+      "confident": false,
+      "act_without_check": false,
+      "would_skip_if_cosmetic_confident": false,
+      "unsafe_skip": false,
+      "probabilities": {
+        "cosmetic": 0.1158,
+        "scalar": 0.1034,
+        "structural": 0.7809
+      },
+      "infer_seconds": 1.54
+    },
+    {
+      "id": "yml-image-tag.diff",
+      "path": ".circleci/config.yml",
+      "gold": "scalar",
+      "predicted": "scalar",
+      "correct": true,
+      "confidence": 0.6773,
+      "confident": false,
+      "act_without_check": false,
+      "would_skip_if_cosmetic_confident": false,
+      "unsafe_skip": false,
+      "probabilities": {
+        "cosmetic": 0.1426,
+        "scalar": 0.7849,
+        "structural": 0.0725
+      },
+      "infer_seconds": 2.099
+    },
+    {
+      "id": "yml-new-job.diff",
+      "path": ".circleci/config.yml",
+      "gold": "structural",
+      "predicted": "structural",
+      "correct": true,
+      "confidence": 0.7945,
+      "confident": false,
+      "act_without_check": false,
+      "would_skip_if_cosmetic_confident": false,
+      "unsafe_skip": false,
+      "probabilities": {
+        "cosmetic": 0.099,
+        "scalar": 0.038,
+        "structural": 0.863
+      },
+      "infer_seconds": 2.301
+    },
+    {
+      "id": "yml-resource.diff",
+      "path": ".circleci/config.yml",
+      "gold": "scalar",
+      "predicted": "scalar",
+      "correct": true,
+      "confidence": 0.7255,
+      "confident": false,
+      "act_without_check": false,
+      "would_skip_if_cosmetic_confident": false,
+      "unsafe_skip": false,
+      "probabilities": {
+        "cosmetic": 0.1021,
+        "scalar": 0.817,
+        "structural": 0.0809
+      },
+      "infer_seconds": 2.108
+    }
+  ],
+  "verdict": "no_high_confidence_on_same_path"
+}
