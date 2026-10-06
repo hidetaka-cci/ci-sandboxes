@@ -61,6 +61,13 @@ def main() -> int:
     method = os.environ.get("METHOD", "A")
     versions = load_versions()
     hub_id = versions["DECIDER_HUB_ID"]
+    # Method B may prefer a local materialized checkpoint baked into the image.
+    local_marker = Path("/opt/models/DECIDER_LOCAL_PATH")
+    if method == "B" and local_marker.is_file():
+        local_path = local_marker.read_text().strip()
+        if local_path and Path(local_path).is_dir():
+            hub_id = local_path
+            print(f"Using baked local checkpoint: {hub_id}", flush=True)
     out_dir = Path(os.environ.get("BENCH_OUT", "bench-out"))
     out_dir.mkdir(parents=True, exist_ok=True)
 

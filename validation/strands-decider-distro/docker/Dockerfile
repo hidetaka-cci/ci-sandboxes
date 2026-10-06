@@ -33,9 +33,9 @@ RUN python3 -m venv "${VENV_DIR}" \
  && python -m pip install torch --index-url https://download.pytorch.org/whl/cpu \
  && python -m pip install "strands-decider==${STRANDS_DECIDER_VERSION}" \
  && python /opt/prefetch_into_image.py \
- && du -sh "${HF_HOME}" "${VENV_DIR}" \
- && ls -la "${HF_HOME}/hub" | head -50
+ && du -sh /opt/models "${VENV_DIR}" \
+ && ls -la /opt/models /opt/models/decider /opt/models/base | head -80
 
-# Measure jobs should prefer offline; measure-b also verifies cache presence.
+# Offline: checkpoint config points at /opt/models/base.
 ENV HF_HUB_OFFLINE=1 \
     TRANSFORMERS_OFFLINE=1

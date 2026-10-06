@@ -151,16 +151,19 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Verify baked HF cache is present
+          name: Verify baked model dirs are present
           command: |
             set -euo pipefail
-            echo "HF_HOME=${HF_HOME}"
             echo "VENV_DIR=${VENV_DIR}"
-            du -sh "${HF_HOME}" "${VENV_DIR}"
-            ls -la "${HF_HOME}/hub" | head -50
-            test -d "${HF_HOME}/hub/models--Qwen--Qwen3.5-2B-Base"
-            test -d "${HF_HOME}/hub/models--StrandsAgents--strands-decider-2B-hobson-v19"
+            du -sh /opt/models "${VENV_DIR}"
+            test -f /opt/models/DECIDER_LOCAL_PATH
+            test -d /opt/models/decider
+            test -d /opt/models/base
             test -x "${VENV_DIR}/bin/python"
+            # Base weights must be multi-GB (guards against pointer-only downloads).
+            BASE_BYTES=$(du -sb /opt/models/base | awk '{print $1}')
+            echo "base_bytes=${BASE_BYTES}"
+            test "${BASE_BYTES}" -ge 2000000000
       - run-timed-bench:
           method: B
 
