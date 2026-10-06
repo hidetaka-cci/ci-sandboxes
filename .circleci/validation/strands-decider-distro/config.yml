@@ -5,9 +5,9 @@ version: 2.1
 parameters:
   phase:
     type: enum
-    enum: ["step0", "prepare", "measure", "confidence"]
+    enum: ["step0", "prepare", "measure", "confidence", "cases"]
     default: "step0"
-    description: "step0 / prepare=Cキャッシュ / measure=A/C / confidence=実PR確信度"
+    description: "step0 / prepare=Cキャッシュ / measure=A/C / confidence / cases=高確信度ケース"
   include_b:
     type: boolean
     default: false
@@ -243,6 +243,40 @@ jobs:
       - store_artifacts:
           path: bench-out
 
+  high-conf-cases:
+    executor: python-xlarge-offline
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - strands-decider-cache-{{ checksum "validation/strands-decider-distro/versions.env" }}
+      - run:
+          name: Verify restored venv + offline pin
+          command: |
+            set -euo pipefail
+            test -x "${VENV_DIR}/bin/python"
+            export PATH="${VENV_DIR}/bin:${PATH}"
+            test "${HF_HUB_OFFLINE}" = "1"
+            set -a
+            # shellcheck disable=SC1091
+            source validation/strands-decider-distro/versions.env
+            set +a
+            test "$(cat "${HF_HOME}/hub/models--StrandsAgents--strands-decider-2B-hobson-v19/refs/main")" = "${DECIDER_REVISION}"
+      - run:
+          name: Run designed high-confidence cases
+          no_output_timeout: 45m
+          command: |
+            set -euo pipefail
+            set -a
+            # shellcheck disable=SC1091
+            source validation/strands-decider-distro/versions.env
+            set +a
+            export PATH="${VENV_DIR}/bin:${PATH}"
+            mkdir -p "${BENCH_OUT}"
+            python validation/strands-decider-distro/scripts/run_high_conf_cases.py
+      - store_artifacts:
+          path: bench-out
+
 workflows:
   step0:
     when:
@@ -284,3 +318,9 @@ workflows:
       equal: [confidence, << pipeline.parameters.phase >>]
     jobs:
       - confidence-c
+
+  cases:
+    when:
+      equal: [cases, << pipeline.parameters.phase >>]
+    jobs:
+      - high-conf-cases
