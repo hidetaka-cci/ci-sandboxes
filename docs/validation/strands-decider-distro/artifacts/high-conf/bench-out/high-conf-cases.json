@@ -1,0 +1,289 @@
+{
+  "threshold": 0.9,
+  "noul_confident_rule": "noul>=0.9 or noul<=0.1",
+  "load_seconds": 3.964,
+  "decider_revision": "bb282d786bc251fd4e3068de3ada9ddbb38127cd",
+  "hf_hub_offline": "1",
+  "answer_confidence_rate": 0.4118,
+  "confident_answers": 7,
+  "total_answers": 17,
+  "by_family": {
+    "official_demo": {
+      "answers": 3,
+      "confident": 0,
+      "rate": 0.0
+    },
+    "fact": {
+      "answers": 3,
+      "confident": 2,
+      "rate": 0.6667
+    },
+    "classification": {
+      "answers": 1,
+      "confident": 1,
+      "rate": 1.0
+    },
+    "intent": {
+      "answers": 1,
+      "confident": 1,
+      "rate": 1.0
+    },
+    "tool_selection": {
+      "answers": 2,
+      "confident": 0,
+      "rate": 0.0
+    },
+    "ci_change_kind": {
+      "answers": 6,
+      "confident": 2,
+      "rate": 0.3333
+    },
+    "routing": {
+      "answers": 1,
+      "confident": 1,
+      "rate": 1.0
+    }
+  },
+  "cases_with_any_confident": 7,
+  "case_count": 10,
+  "per_case": [
+    {
+      "id": "official_payouts",
+      "family": "official_demo",
+      "infer_seconds": 1.977,
+      "confident_answers": 0,
+      "total_answers": 3,
+      "answers": {
+        "is_urgent": {
+          "type": "noul",
+          "noul": 0.8178,
+          "derived_confidence": 0.6356,
+          "confident": false
+        },
+        "team": {
+          "type": "choice",
+          "choice": "billing",
+          "confidence": 0.672,
+          "confident": false,
+          "probabilities": {
+            "billing": 0.7814,
+            "technical": 0.2067,
+            "sales": 0.012
+          }
+        },
+        "frustration": {
+          "type": "score",
+          "score": 1.2019,
+          "confidence": 0.4718,
+          "confident": false,
+          "probabilities": {
+            "0": 0.1489,
+            "1": 0.5004,
+            "2": 0.3507
+          }
+        }
+      }
+    },
+    {
+      "id": "fact_sky_blue",
+      "family": "fact",
+      "infer_seconds": 1.59,
+      "confident_answers": 1,
+      "total_answers": 2,
+      "answers": {
+        "sky_is_blue": {
+          "type": "noul",
+          "noul": 0.9294,
+          "derived_confidence": 0.8588,
+          "confident": true
+        },
+        "sky_is_green": {
+          "type": "noul",
+          "noul": 0.1389,
+          "derived_confidence": 0.7222,
+          "confident": false
+        }
+      }
+    },
+    {
+      "id": "fact_arithmetic",
+      "family": "fact",
+      "infer_seconds": 0.706,
+      "confident_answers": 1,
+      "total_answers": 1,
+      "answers": {
+        "two_plus_two_is_four": {
+          "type": "noul",
+          "noul": 0.9407,
+          "derived_confidence": 0.8814,
+          "confident": true
+        }
+      }
+    },
+    {
+      "id": "language_zulu",
+      "family": "classification",
+      "infer_seconds": 0.838,
+      "confident_answers": 1,
+      "total_answers": 1,
+      "answers": {
+        "language": {
+          "type": "choice",
+          "choice": "zulu",
+          "confidence": 0.9275,
+          "confident": true,
+          "probabilities": {
+            "english": 0.0352,
+            "zulu": 0.9517,
+            "dutch": 0.0132
+          }
+        }
+      }
+    },
+    {
+      "id": "intent_refund",
+      "family": "intent",
+      "infer_seconds": 0.769,
+      "confident_answers": 1,
+      "total_answers": 1,
+      "answers": {
+        "intent": {
+          "type": "choice",
+          "choice": "refund",
+          "confidence": 0.9796,
+          "confident": true,
+          "probabilities": {
+            "refund": 0.9864,
+            "bug_report": 0.0105,
+            "upgrade": 0.0031
+          }
+        }
+      }
+    },
+    {
+      "id": "tool_weather_city_missing",
+      "family": "tool_selection",
+      "infer_seconds": 1.614,
+      "confident_answers": 0,
+      "total_answers": 2,
+      "answers": {
+        "has_city": {
+          "type": "noul",
+          "noul": 0.2024,
+          "derived_confidence": 0.5952,
+          "confident": false
+        },
+        "tool": {
+          "type": "choice",
+          "choice": "get_weather",
+          "confidence": 0.5228,
+          "confident": false,
+          "probabilities": {
+            "ask_city": 0.2871,
+            "get_weather": 0.6819,
+            "search_web": 0.031
+          }
+        }
+      }
+    },
+    {
+      "id": "ci_kind_app_code",
+      "family": "ci_change_kind",
+      "infer_seconds": 3.508,
+      "confident_answers": 1,
+      "total_answers": 2,
+      "answers": {
+        "kind": {
+          "type": "choice",
+          "choice": "application_code",
+          "confidence": 0.9258,
+          "confident": true,
+          "probabilities": {
+            "documentation": 0.0288,
+            "application_code": 0.9505,
+            "ci_config": 0.0206
+          }
+        },
+        "touches_src": {
+          "type": "noul",
+          "noul": 0.8067,
+          "derived_confidence": 0.6134,
+          "confident": false
+        }
+      }
+    },
+    {
+      "id": "ci_kind_ci_yaml",
+      "family": "ci_change_kind",
+      "infer_seconds": 7.459,
+      "confident_answers": 1,
+      "total_answers": 2,
+      "answers": {
+        "kind": {
+          "type": "choice",
+          "choice": "ci_config",
+          "confidence": 0.9559,
+          "confident": true,
+          "probabilities": {
+            "documentation": 0.0126,
+            "application_code": 0.0168,
+            "ci_config": 0.9706
+          }
+        },
+        "touches_circleci": {
+          "type": "noul",
+          "noul": 0.8306,
+          "derived_confidence": 0.6612,
+          "confident": false
+        }
+      }
+    },
+    {
+      "id": "ci_kind_docs",
+      "family": "ci_change_kind",
+      "infer_seconds": 9.727,
+      "confident_answers": 0,
+      "total_answers": 2,
+      "answers": {
+        "kind": {
+          "type": "choice",
+          "choice": "application_code",
+          "confidence": 0.4662,
+          "confident": false,
+          "probabilities": {
+            "documentation": 0.0808,
+            "application_code": 0.6441,
+            "ci_config": 0.2751
+          }
+        },
+        "touches_src": {
+          "type": "noul",
+          "noul": 0.7332,
+          "derived_confidence": 0.4664,
+          "confident": false
+        }
+      }
+    },
+    {
+      "id": "routing_payouts_only_choice",
+      "family": "routing",
+      "infer_seconds": 0.714,
+      "confident_answers": 1,
+      "total_answers": 1,
+      "answers": {
+        "queue": {
+          "type": "choice",
+          "choice": "payments",
+          "confidence": 0.9527,
+          "confident": true,
+          "probabilities": {
+            "payments": 0.9684,
+            "infra": 0.0237,
+            "content": 0.0078
+          }
+        }
+      }
+    }
+  ],
+  "verdict": "can_emit_high_confidence"
+}
