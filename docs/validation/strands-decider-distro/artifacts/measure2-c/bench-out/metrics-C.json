@@ -1,0 +1,18 @@
+{
+  "method": "C",
+  "strands_decider_version": "0.1.0",
+  "decider_hub_id": "StrandsAgents/strands-decider-2B-hobson-v19",
+  "base_model_id": "Qwen/Qwen3.5-2B-Base",
+  "base_model_revision_expected": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+  "base_model_revision_loaded": null,
+  "revision_match": null,
+  "load_seconds": 5.739,
+  "infer_small_seconds": 5.605,
+  "infer_large_seconds": 26.545,
+  "peak_rss_kb_after_load": 11640716,
+  "peak_rss_kb_final": 11640716,
+  "circle_build_num": "582",
+  "circle_job": "measure-c",
+  "circle_workflow_id": "815c71c2-3370-4702-859e-47d1a5226523",
+  "circle_pipeline_id": "d6970640-13f2-4d95-a34b-d541b47b2027"
+}

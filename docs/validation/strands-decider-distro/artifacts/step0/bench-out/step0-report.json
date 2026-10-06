@@ -1,0 +1,18 @@
+{
+  "load_seconds_offline": 4.878,
+  "infer_small_seconds": 3.857,
+  "peak_rss_kb_after_load": 11751464,
+  "peak_rss_kb_final": 11751464,
+  "peak_rss_gb_final": 11.207,
+  "fits_xlarge_16gb": true,
+  "base_model_revision_expected": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+  "base_model_revision_loaded": null,
+  "base_snapshot_path": "/home/circleci/.cache/huggingface/hub/models--Qwen--Qwen3.5-2B-Base/snapshots/b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+  "decider_snapshot_path": "/home/circleci/.cache/huggingface/hub/models--StrandsAgents--strands-decider-2B-hobson-v19/snapshots/bb282d786bc251fd4e3068de3ada9ddbb38127cd",
+  "snapshot_contains_pin": true,
+  "config_base_revision_match": null,
+  "revision_pin_ok": true,
+  "offline_load_ok": true,
+  "noul": 0.4672,
+  "note": "config.base_revision may be null even when provenance/cache pin works; offline load + snapshot path is the Step 0 criterion."
+}

@@ -7,7 +7,11 @@ parameters:
     type: enum
     enum: ["step0", "prepare", "measure"]
     default: "step0"
-    description: "step0=前提確認 / prepare=BイメージとCキャッシュ準備 / measure=A/B/C並列計測"
+    description: "step0=前提確認 / prepare=Cキャッシュ準備 / measure=A/C並列計測"
+  include_b:
+    type: boolean
+    default: false
+    description: "B(独自イメージ)は難しいと判断済み。再挑戦する場合のみ true"
 
 executors:
   python-xlarge:
@@ -196,6 +200,13 @@ workflows:
       equal: [prepare, << pipeline.parameters.phase >>]
     jobs:
       - prepare-cache-c
+
+  prepare-b-opt-in:
+    when:
+      and:
+        - equal: [prepare, << pipeline.parameters.phase >>]
+        - equal: [true, << pipeline.parameters.include_b >>]
+    jobs:
       - prepare-image-b
 
   measure:
@@ -203,5 +214,12 @@ workflows:
       equal: [measure, << pipeline.parameters.phase >>]
     jobs:
       - measure-a
-      - measure-b
       - measure-c
+
+  measure-b-opt-in:
+    when:
+      and:
+        - equal: [measure, << pipeline.parameters.phase >>]
+        - equal: [true, << pipeline.parameters.include_b >>]
+    jobs:
+      - measure-b
