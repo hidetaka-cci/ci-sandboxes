@@ -40,7 +40,10 @@ def main() -> int:
     from strands_decider.schema import NoulQuestion
 
     print("=== prefetch decider + base at pinned revision ===", flush=True)
-    decider_path = snapshot_download(versions["DECIDER_HUB_ID"])
+    decider_path = snapshot_download(
+        versions["DECIDER_HUB_ID"],
+        revision=versions["DECIDER_REVISION"],
+    )
     base_path = snapshot_download(
         versions["BASE_MODEL_ID"],
         revision=versions["BASE_MODEL_REVISION"],
@@ -52,7 +55,7 @@ def main() -> int:
     os.environ["HF_HUB_OFFLINE"] = "1"
     os.environ["TRANSFORMERS_OFFLINE"] = "1"
     t0 = time.perf_counter()
-    engine = load_engine(versions["DECIDER_HUB_ID"], device="cpu")
+    engine = load_engine(decider_path, device="cpu")
     load_s = time.perf_counter() - t0
     peak_load = peak_rss_kb()
     cfg = getattr(getattr(engine, "model", None), "config", None)

@@ -1,13 +1,13 @@
-# Strands Decider 2B 配布方式比較（A=HF毎回 / B=独自イメージ / C=restore_cache）
+# Strands Decider 2B 配布方式比較 + 確信度検証
 # Pipeline definition から参照。main の .circleci/config.yml は変更しない。
 version: 2.1
 
 parameters:
   phase:
     type: enum
-    enum: ["step0", "prepare", "measure"]
+    enum: ["step0", "prepare", "measure", "confidence"]
     default: "step0"
-    description: "step0=前提確認 / prepare=Cキャッシュ準備 / measure=A/C並列計測"
+    description: "step0 / prepare=Cキャッシュ / measure=A/C / confidence=実PR確信度"
   include_b:
     type: boolean
     default: false
@@ -22,12 +22,27 @@ executors:
     environment:
       VENV_DIR: /home/circleci/venv
       HF_HOME: /home/circleci/.cache/huggingface
+      HF_HUB_CACHE: /home/circleci/.cache/huggingface/hub
       TRANSFORMERS_CACHE: /home/circleci/.cache/huggingface/hub
       BENCH_OUT: /home/circleci/project/bench-out
 
+  # Method C / confidence: pinned weights only, no Hub traffic at infer time.
+  python-xlarge-offline:
+    docker:
+      - image: cimg/python:3.12
+    resource_class: xlarge
+    working_directory: ~/project
+    environment:
+      VENV_DIR: /home/circleci/venv
+      HF_HOME: /home/circleci/.cache/huggingface
+      HF_HUB_CACHE: /home/circleci/.cache/huggingface/hub
+      TRANSFORMERS_CACHE: /home/circleci/.cache/huggingface/hub
+      BENCH_OUT: /home/circleci/project/bench-out
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+
   baked-xlarge:
     docker:
-      # prepare ジョブが同タグへ push。ttl.sh は認証不要の一時レジストリ。
       - image: ttl.sh/hidetaka-cci-strands-decider-bench:7d
     resource_class: xlarge
     working_directory: ~/project
@@ -60,13 +75,12 @@ commands:
             METHOD: << parameters.method >>
           command: |
             set -euo pipefail
-            # shellcheck disable=SC1091
             set -a
+            # shellcheck disable=SC1091
             source validation/strands-decider-distro/versions.env
             set +a
             export PATH="${VENV_DIR}/bin:${PATH}"
             mkdir -p "${BENCH_OUT}"
-            # cimg には /usr/bin/time が無いため、peak RSS は run_bench.py 内の resource で測る
             python validation/strands-decider-distro/scripts/run_bench.py
       - store_artifacts:
           path: bench-out
@@ -84,7 +98,6 @@ jobs:
             set -euo pipefail
             export PATH="${VENV_DIR}/bin:${PATH}"
             mkdir -p "${BENCH_OUT}"
-            # cimg には /usr/bin/time が無いため、peak RSS は step0_preflight.py 内の resource で測る
             python validation/strands-decider-distro/scripts/step0_preflight.py
       - store_artifacts:
           path: bench-out
@@ -164,7 +177,6 @@ jobs:
             test -d /opt/models/decider
             test -d /opt/models/base
             test -x "${VENV_DIR}/bin/python"
-            # Base weights must be multi-GB (guards against pointer-only downloads).
             BASE_BYTES=$(du -sb /opt/models/base | awk '{print $1}')
             echo "base_bytes=${BASE_BYTES}"
             test "${BASE_BYTES}" -ge 2000000000
@@ -172,21 +184,64 @@ jobs:
           method: B
 
   measure-c:
-    executor: python-xlarge
+    executor: python-xlarge-offline
     steps:
       - checkout
       - restore_cache:
           keys:
             - strands-decider-cache-{{ checksum "validation/strands-decider-distro/versions.env" }}
       - run:
-          name: Verify restored venv
+          name: Verify restored venv + offline pin
           command: |
             set -euo pipefail
             test -x "${VENV_DIR}/bin/python"
             export PATH="${VENV_DIR}/bin:${PATH}"
             python -c "import strands_decider; print(strands_decider.__version__)"
+            test "${HF_HUB_OFFLINE}" = "1"
+            test "${TRANSFORMERS_OFFLINE}" = "1"
+            # shellcheck disable=SC1091
+            set -a
+            source validation/strands-decider-distro/versions.env
+            set +a
+            test -f "${HF_HOME}/hub/models--StrandsAgents--strands-decider-2B-hobson-v19/refs/main"
+            test "$(cat "${HF_HOME}/hub/models--StrandsAgents--strands-decider-2B-hobson-v19/refs/main")" = "${DECIDER_REVISION}"
+            test "$(cat "${HF_HOME}/hub/models--Qwen--Qwen3.5-2B-Base/refs/main")" = "${BASE_MODEL_REVISION}"
       - run-timed-bench:
           method: C
+
+  confidence-c:
+    executor: python-xlarge-offline
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - strands-decider-cache-{{ checksum "validation/strands-decider-distro/versions.env" }}
+      - run:
+          name: Verify restored venv + offline pin
+          command: |
+            set -euo pipefail
+            test -x "${VENV_DIR}/bin/python"
+            export PATH="${VENV_DIR}/bin:${PATH}"
+            test "${HF_HUB_OFFLINE}" = "1"
+            # shellcheck disable=SC1091
+            set -a
+            source validation/strands-decider-distro/versions.env
+            set +a
+            test "$(cat "${HF_HOME}/hub/models--StrandsAgents--strands-decider-2B-hobson-v19/refs/main")" = "${DECIDER_REVISION}"
+      - run:
+          name: Confidence rate on real PR diffs
+          no_output_timeout: 60m
+          command: |
+            set -euo pipefail
+            set -a
+            # shellcheck disable=SC1091
+            source validation/strands-decider-distro/versions.env
+            set +a
+            export PATH="${VENV_DIR}/bin:${PATH}"
+            mkdir -p "${BENCH_OUT}"
+            python validation/strands-decider-distro/scripts/run_confidence.py
+      - store_artifacts:
+          path: bench-out
 
 workflows:
   step0:
@@ -223,3 +278,9 @@ workflows:
         - equal: [true, << pipeline.parameters.include_b >>]
     jobs:
       - measure-b
+
+  confidence:
+    when:
+      equal: [confidence, << pipeline.parameters.phase >>]
+    jobs:
+      - confidence-c

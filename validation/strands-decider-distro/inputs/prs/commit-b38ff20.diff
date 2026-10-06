@@ -1,0 +1,123 @@
+diff --git a/.circleci/config.yml b/.circleci/config.yml
+new file mode 100644
+index 0000000..6212647
+--- /dev/null
++++ b/.circleci/config.yml
+@@ -0,0 +1,59 @@
++# =============================================================
++# Smarter Testing / Test Impact Analysis 検証用 CircleCI config
++# =============================================================
++#
++# 検証ステップ:
++#   1. circleci testsuite doctor "ci tests"（全チェック pass）
++#   2. main で analysis（1回目）→ feature branch で selection（2回目）
++#   2b. feature branch で --analyze-tests=impacted を明示
++#
++version: 2.1
++
++executors:
++  node22-small:
++    docker:
++      - image: cimg/node:22.16
++    resource_class: small
++
++jobs:
++  doctor:
++    executor: node22-small
++    steps:
++      - checkout
++      - run:
++          name: Install dependencies
++          command: npm ci
++      - run:
++          name: Validate test suite configuration
++          command: circleci testsuite doctor "ci tests"
++
++  test:
++    executor: node22-small
++    steps:
++      - checkout
++      - run:
++          name: Install dependencies
++          command: npm ci
++      - run:
++          name: Run tests with Smarter Testing
++          command: |
++            # main: デフォルト（analysis + 全テスト実行）— ステップ2の1回目
++            # feature/tia-verify-selection: selectionのみ — ステップ2の2回目
++            # feature/tia-verify-analyze: --analyze-tests=impacted 明示 — ステップ2b
++            if [ "<< pipeline.git.branch >>" = "main" ]; then
++              circleci testsuite run "ci tests"
++            elif [ "<< pipeline.git.branch >>" = "feature/tia-verify-analyze" ]; then
++              circleci testsuite run "ci tests" --analyze-tests=impacted
++            else
++              circleci testsuite run "ci tests" --analyze-tests=none
++            fi
++      - store_test_results:
++          path: test-reports
++
++workflows:
++  smarter-testing-verify:
++    jobs:
++      - doctor
++      - test:
++          requires:
++            - doctor
+diff --git a/.circleci/test-suites.yml b/.circleci/test-suites.yml
+new file mode 100644
+index 0000000..503fbe6
+--- /dev/null
++++ b/.circleci/test-suites.yml
+@@ -0,0 +1,9 @@
++---
++name: ci tests
++discover: npx vitest list --filesOnly
++run: npx vitest run --reporter=junit --outputFile="<< outputs.junit >>" --silent --bail 0 << test.atoms >>
++analysis: npx vitest run --coverage --coverage.reporter=lcovonly --coverage.reportsDirectory="$(dirname << outputs.lcov >>)" << test.atoms >> && mv "$(dirname << outputs.lcov >>)/lcov.info" "<< outputs.lcov >>"
++outputs:
++  junit: test-reports/junit.xml
++options:
++  test-impact-analysis: true
+diff --git a/.gitignore b/.gitignore
+index a547bf3..f6649f6 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -8,6 +8,8 @@ pnpm-debug.log*
+ lerna-debug.log*
+ 
+ node_modules
++test-reports
++.circleci/impact-*.json
+ dist
+ dist-ssr
+ *.local
+diff --git a/package.json b/package.json
+index e6920c3..f093844 100644
+--- a/package.json
++++ b/package.json
+@@ -10,6 +10,7 @@
+     "test": "vitest run"
+   },
+   "devDependencies": {
++    "@vitest/coverage-v8": "^4.1.10",
+     "typescript": "~5.9.3",
+     "vite": "^7.2.4",
+     "vitest": "^4.1.10"
+diff --git a/vitest.config.ts b/vitest.config.ts
+new file mode 100644
+index 0000000..7b8a54a
+--- /dev/null
++++ b/vitest.config.ts
+@@ -0,0 +1,12 @@
++import { defineConfig } from 'vitest/config'
++
++export default defineConfig({
++  test: {
++    coverage: {
++      provider: 'v8',
++      include: ['src/**/*.ts'],
++      exclude: ['src/**/*.test.ts'],
++      reporter: ['lcovonly'],
++    },
++  },
++})

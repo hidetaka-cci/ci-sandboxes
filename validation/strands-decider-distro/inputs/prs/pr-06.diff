@@ -1,0 +1,1185 @@
+diff --git a/.chunk/run.json b/.chunk/run.json
+new file mode 100644
+index 0000000..e9c52cd
+--- /dev/null
++++ b/.chunk/run.json
+@@ -0,0 +1,11 @@
++{
++  "org_id": "0ffedcab-0755-4ea2-a76e-7f8a0b082494",
++  "project_id": "23a96b91-80ac-47b3-b0a1-8467a3ea2c92",
++  "org_type": "github",
++  "definitions": {
++    "chat": {
++      "definition_id": "3125aecb-d02a-4fa0-b113-39752e2f8b9a",
++      "default_branch": "main"
++    }
++  }
++}
+diff --git a/.circleci/config.yml b/.circleci/config.yml
+new file mode 100644
+index 0000000..a8f2543
+--- /dev/null
++++ b/.circleci/config.yml
+@@ -0,0 +1,187 @@
++# =============================================================
++# chunk task run 検証用 config
++# =============================================================
++#
++# 検証A/A4: on_fail 非対話起動・success 時の非発火
++# 検証C1/C2: 実バグに対する自律修正（プロンプト比較）
++#
++# 環境変数（CircleCI プロジェクト設定で登録）:
++#   CIRCLECI_TOKEN           … 個人 API トークン（All API scopes）
++#   CHUNK_TASK_DEFINITION    … タスク定義名または UUID
++# =============================================================
++
++version: 2.1
++
++parameters:
++  chunk_cli_version:
++    type: string
++    default: "0.7.109"
++
++executors:
++  base-small:
++    docker:
++      - image: cimg/base:current
++    resource_class: small
++  node-small:
++    docker:
++      - image: cimg/node:lts
++    resource_class: small
++
++commands:
++  install-chunk-cli:
++    parameters:
++      version:
++        type: string
++        default: << pipeline.parameters.chunk_cli_version >>
++    steps:
++      - run:
++          name: Install chunk CLI
++          command: |
++            set -euo pipefail
++            CHUNK_VERSION="<< parameters.version >>"
++            ARCH="$(uname -m)"
++            case "$ARCH" in
++              x86_64) CHUNK_ARCH="x86_64" ;;
++              aarch64|arm64) CHUNK_ARCH="arm64" ;;
++              *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
++            esac
++            URL="https://github.com/CircleCI-Public/chunk-cli/releases/download/v${CHUNK_VERSION}/chunk-cli_Linux_${CHUNK_ARCH}.tar.gz"
++            curl -fsSL "$URL" | tar -xzf - -C /tmp
++            sudo mv /tmp/chunk /usr/local/bin/chunk
++            chunk --version
++
++  trigger-chunk-task-on-fail:
++    description: Run chunk task run (invoke individual steps with when on_fail)
++    parameters:
++      prompt:
++        type: string
++    steps:
++      - run:
++          name: Verify chunk auth (on_fail)
++          when: on_fail
++          command: |
++            set -euo pipefail
++            if [ -z "${CIRCLECI_TOKEN:-}" ] && [ -z "${CIRCLE_TOKEN:-}" ]; then
++              echo "CIRCLECI_TOKEN or CIRCLE_TOKEN must be set in project env vars"
++              exit 1
++            fi
++            chunk auth status
++      - run:
++          name: Trigger chunk task run (on_fail)
++          when: on_fail
++          command: |
++            set -euo pipefail
++            chunk task run \
++              --definition "${CHUNK_TASK_DEFINITION}" \
++              --prompt "<< parameters.prompt >>" \
++              --json
++
++jobs:
++  # -------------------------------------------------------
++  # 検証A: 意図的失敗 → on_fail で chunk task run
++  # -------------------------------------------------------
++  on-fail-trigger:
++    executor: base-small
++    steps:
++      - checkout
++      - install-chunk-cli
++      - run:
++          name: Intentionally fail (to fire on_fail steps)
++          command: |
++            echo "Failing intentionally for chunk task on_fail validation"
++            exit 1
++      - trigger-chunk-task-on-fail:
++          prompt: >-
++            CI validation: this prompt was sent from a CircleCI on_fail step
++            via chunk task run. Reply with exactly one line: CI validation OK.
++
++  # -------------------------------------------------------
++  # 検証A4: 成功時に on_fail が発火しないこと
++  # -------------------------------------------------------
++  success-control:
++    executor: base-small
++    steps:
++      - checkout
++      - install-chunk-cli
++      - run:
++          name: Job succeeds intentionally
++          command: 'echo "success-control job completed successfully"'
++      - run:
++          name: on_fail step must NOT run on success
++          when: on_fail
++          command: |
++            echo "UNEXPECTED: on_fail step ran on a successful job"
++            exit 1
++
++  # -------------------------------------------------------
++  # 検証C1: 原因を書かないプロンプトで自律修正できるか
++  # -------------------------------------------------------
++  bug-fix-c1:
++    executor: node-small
++    steps:
++      - checkout
++      - install-chunk-cli
++      - run:
++          name: Install dependencies
++          command: npm ci
++      - run:
++          name: Run tests
++          command: npm test 2>&1 | tee /tmp/test-output.txt
++      - run:
++          name: Trigger chunk task run - C1 vague prompt (on_fail)
++          when: on_fail
++          command: |
++            set -euo pipefail
++            chunk task run \
++              --definition "${CHUNK_TASK_DEFINITION}" \
++              --prompt "このリポジトリのCIテストが失敗しています。原因を特定してコードを修正してください。" \
++              --new-branch \
++              --json
++
++  # -------------------------------------------------------
++  # 検証C2: テストログをプロンプトに埋め込んで自律修正できるか
++  # -------------------------------------------------------
++  bug-fix-c2:
++    executor: node-small
++    steps:
++      - checkout
++      - install-chunk-cli
++      - run:
++          name: Install dependencies
++          command: npm ci
++      - run:
++          name: Run tests (capture output)
++          command: npm test 2>&1 | tee /tmp/test-output.txt
++      - run:
++          name: Trigger chunk task run - C2 log-embedded prompt (on_fail)
++          when: on_fail
++          command: |
++            set -euo pipefail
++            TEST_LOG=$(tail -80 /tmp/test-output.txt 2>/dev/null || echo "test output unavailable")
++            PROMPT=$(printf 'CIのテストが失敗しました。以下のテストログを参照して原因を特定し、コードを修正してください。テストのスキップや削除で通すことは禁止します。\n\nテストログ:\n%s' "${TEST_LOG}")
++            chunk task run \
++              --definition "${CHUNK_TASK_DEFINITION}" \
++              --prompt "${PROMPT}" \
++              --new-branch \
++              --json
++
++workflows:
++  # 検証A
++  chunk-task-on-fail:
++    jobs:
++      - on-fail-trigger
++
++  # 検証A4
++  chunk-task-success-control:
++    jobs:
++      - success-control
++
++  # 検証C1
++  chunk-task-bug-fix-c1:
++    jobs:
++      - bug-fix-c1
++
++  # 検証C2
++  chunk-task-bug-fix-c2:
++    jobs:
++      - bug-fix-c2
+diff --git a/.circleci/validation/README-chunk-task-on-fail.md b/.circleci/validation/README-chunk-task-on-fail.md
+new file mode 100644
+index 0000000..0fd4777
+--- /dev/null
++++ b/.circleci/validation/README-chunk-task-on-fail.md
+@@ -0,0 +1,73 @@
++# chunk task run × on_fail 検証
++
++`chunk task run` を CI job 失敗時に非対話起動し、Cloud Chunk タスクとして Web UI に現れることを確定するための最小プラン。
++
++## ファイル
++
++| ファイル | 用途 |
++|---|---|
++| `chunk-task-on-fail.yml` | 検証A（on_fail 起動）+ A4（成功時は発火しない） |
++| `../../.chunk/run.json` | `chunk task config` 相当（org / project ID。definitions は空でも UUID 直指定可） |
++
++## セットアップ（著者作業）
++
++| # | 準備 | 完了条件 |
++|---|------|---------|
++| S1 | 本リポジトリ `gh/hidetaka-cci/ci-sandboxes` を CircleCI に接続 | 済み想定 |
++| S2 | 組織で Chunk 有効化・**Allow Chunk tasks** ON・プロバイダ「CircleCI (Powered by Anthropic)」 | 設定画面で確認 |
++| S3 | タスク定義 UUID を取得し `CHUNK_TASK_DEFINITION` に登録 | Web UI または `chunk task config` |
++| S4 | `.chunk/run.json` をコミット済み（本 PR） | project_id が実行プロジェクトと一致 |
++| S5 | `CIRCLECI_TOKEN`（個人 API トークン）をプロジェクト環境変数に登録 | job から参照可能 |
++
++### config の有効化
++
++```bash
++cp .circleci/validation/chunk-task-on-fail.yml .circleci/config.yml
++git add .circleci/config.yml
++git commit -m "Enable chunk-task-on-fail validation config"
++git push
++```
++
++または CircleCI のパイプライン設定で上記 YAML を参照する。
++
++## 検証ステップ
++
++### A: CI job 内での非対話起動
++
++| # | 操作 | 確認 | 成果物 |
++|---|------|------|--------|
++| A1 | `chunk task run --help` 等で非対話手段を確認 | **済（PR 内コメント）**: `CIRCLECI_TOKEN` / `CIRCLE_TOKEN`、`CI=true` | help 出力 |
++| A2 | パイプライン実行 → Install chunk CLI step | インストール成功 | job ログ |
++| A3 | `on-fail-trigger` ジョブ | on_fail step が run ID / pipeline ID（`--json`）を出力 | step ログ |
++| A4 | `success-control` ジョブ | on_fail step がスキップされ成功 | job ログ |
++
++### B: Web UI 可視性とプロバイダ
++
++| # | 操作 | 確認 | 成果物 |
++|---|------|------|--------|
++| B1 | プロバイダ設定・BYO キー未設定 | 前提確認 | スクショ |
++| B2 | A3 の run ID / pipeline ID で Chunk タスク一覧を検索 | CLI 起動タスクが UI に出現 | スクショ |
++| B3 | Task logs を開く | ログ閲覧可 | スクショ |
++| B4 | プロバイダ / トークン枠消費 | BYO キーなしで完走したか | ログ or 設定画面 |
++
++## スクリーンショット取得リスト
++
++1. Chunk 設定（プロバイダ = CircleCI (Powered by Anthropic)、キー未設定）
++2. `on-fail-trigger` の on_fail step ログ（run ID / pipeline ID）
++3. Chunk タスク一覧に CLI 起動タスク
++4. 当該タスクの Task logs
++
++## ハマりどころ
++
++- `chunk task config` は TTY 必須。CI では `CHUNK_TASK_DEFINITION` に UUID を直接渡す。
++- `when: on_fail` は **job 内 step** のみ。workflow 別 job 起動とは別。
++- `.chunk/run.json` の `project_id` と実行プロジェクトの不一致に注意。
++- Chunk Beta の日次トークン上限（40万/日）に注意。
++
++## A1 結論（コード側で先に確定）
++
++| 項目 | 内容 |
++|------|------|
++| トークン | `CIRCLECI_TOKEN` または `CIRCLE_TOKEN` |
++| 非対話 | `CI=true`（CircleCI が自動設定） |
++| 出典 | `chunk task run --help`, [chunk-cli docs/CLI.md](https://github.com/CircleCI-Public/chunk-cli/blob/main/docs/CLI.md) |
+diff --git a/.circleci/validation/chunk-task-on-fail.yml b/.circleci/validation/chunk-task-on-fail.yml
+new file mode 100644
+index 0000000..1685d2f
+--- /dev/null
++++ b/.circleci/validation/chunk-task-on-fail.yml
+@@ -0,0 +1,151 @@
++# =============================================================
++# chunk task run を job 失敗時（when: on_fail）に起動する検証用 config
++# =============================================================
++#
++# 検証対象:
++#   主張A … CI job 内で chunk task run を非対話実行し、on_fail で起動できる
++#   主張B … 起動したタスクが Cloud Chunk タスクとして Web UI に現れる
++#           （Task logs・プロバイダ設定の確認は手動）
++#
++# A1 結論（chunk CLI v0.7.107+ の help / ローカル確認）:
++#   · 非対話認証: 環境変数 CIRCLECI_TOKEN（別名 CIRCLE_TOKEN）でトークンを渡せる
++#   · 対話プロンプト抑制: CI 環境変数（CircleCI は CI=true を自動設定）
++#   · chunk auth set は不要（トークンは env のみで task run が動作）
++#   出典: `chunk task run --help` / chunk-cli docs/CLI.md
++#
++# 事前準備（CircleCI プロジェクト設定）:
++#   1. 組織で Chunk 有効化・Allow Chunk tasks ON・プロバイダ設定
++#   2. 環境変数 CIRCLECI_TOKEN … 個人 API トークン（All API scopes）
++#   3. 環境変数 CHUNK_TASK_DEFINITION … タスク定義の UUID
++#      （Chunk Web UI または `chunk task config` で取得。run.json の definitions が
++#       空でも UUID を直接 --definition に渡せば可）
++#   4. 本ファイルを .circleci/config.yml にコピーするか、パイプラインで参照
++#
++# ワークフロー:
++#   · chunk-task-on-fail … 意図的失敗 → on_fail で chunk task run（主張A）
++#   · chunk-task-success-control … 成功時 on_fail が発火しないこと（A4）
++#
++# 期待される結果:
++#   · on-fail ジョブ: メイン step 失敗後、on_fail step が run ID / pipeline ID を出力
++#   · success-control ジョブ: on_fail step はスキップされ成功のまま
++#
++# 参考:
++#   https://circleci.com/docs/guides/toolkit/how-to-use-chunk-cli/#trigger-chunk-tasks
++#   https://circleci.com/docs/guides/toolkit/install-and-configure-the-chunk-cli/
++# =============================================================
++
++version: 2.1
++
++parameters:
++  chunk_cli_version:
++    type: string
++    default: "0.7.109"
++  chunk_task_prompt:
++    type: string
++    default: >-
++      CI validation: this prompt was sent from a CircleCI on_fail step via chunk task run.
++      Reply with exactly one line: CI validation OK.
++
++executors:
++  base-small:
++    docker:
++      - image: cimg/base:current
++    resource_class: small
++
++commands:
++  install-chunk-cli:
++    description: Install chunk CLI from GitHub release (Linux x86_64 / arm64)
++    parameters:
++      version:
++        type: string
++        default: << pipeline.parameters.chunk_cli_version >>
++    steps:
++      - run:
++          name: Install chunk CLI
++          command: |
++            set -euo pipefail
++            CHUNK_VERSION="<< parameters.version >>"
++            ARCH="$(uname -m)"
++            case "$ARCH" in
++              x86_64) CHUNK_ARCH="x86_64" ;;
++              aarch64|arm64) CHUNK_ARCH="arm64" ;;
++              *)
++                echo "Unsupported architecture: $ARCH"
++                exit 1
++                ;;
++            esac
++            URL="https://github.com/CircleCI-Public/chunk-cli/releases/download/v${CHUNK_VERSION}/chunk-cli_Linux_${CHUNK_ARCH}.tar.gz"
++            echo "Downloading ${URL}"
++            curl -fsSL "$URL" | tar -xzf - -C /tmp
++            sudo mv /tmp/chunk /usr/local/bin/chunk
++            chunk --version
++
++  trigger-chunk-task-on-fail:
++    description: Run chunk task run (invoke individual steps with when on_fail)
++    parameters:
++      prompt:
++        type: string
++        default: << pipeline.parameters.chunk_task_prompt >>
++    steps:
++      - run:
++          name: Verify chunk auth (on_fail)
++          when: on_fail
++          command: |
++            set -euo pipefail
++            if [ -z "${CIRCLECI_TOKEN:-}" ] && [ -z "${CIRCLE_TOKEN:-}" ]; then
++              echo "CIRCLECI_TOKEN or CIRCLE_TOKEN must be set in project env vars"
++              exit 1
++            fi
++            chunk auth status
++      - run:
++          name: Trigger chunk task run (on_fail)
++          when: on_fail
++          command: |
++            set -euo pipefail
++            if [ -z "${CHUNK_TASK_DEFINITION:-}" ]; then
++              echo "CHUNK_TASK_DEFINITION must be set (task definition UUID)"
++              exit 1
++            fi
++            echo "Using definition: ${CHUNK_TASK_DEFINITION}"
++            chunk task run \
++              --definition "${CHUNK_TASK_DEFINITION}" \
++              --prompt "<< parameters.prompt >>" \
++              --json
++            # CircleCI ジョブでは CI=true が自動設定される（非対話モード）
++
++jobs:
++  on-fail-trigger:
++    executor: base-small
++    steps:
++      - checkout
++      - install-chunk-cli
++      - run:
++          name: Intentionally fail (to fire on_fail steps)
++          command: |
++            echo "Failing intentionally for chunk task on_fail validation"
++            exit 1
++      - trigger-chunk-task-on-fail
++
++  success-control:
++    executor: base-small
++    steps:
++      - checkout
++      - install-chunk-cli
++      - run:
++          name: Job succeeds intentionally
++          command: 'echo "success-control job completed successfully"'
++      - run:
++          name: on_fail step must NOT run on success
++          when: on_fail
++          command: |
++            echo "UNEXPECTED: on_fail step ran on a successful job"
++            exit 1
++
++workflows:
++  chunk-task-on-fail:
++    jobs:
++      - on-fail-trigger
++
++  chunk-task-success-control:
++    jobs:
++      - success-control
+diff --git a/docs/chunk-task-run-validation-report.md b/docs/chunk-task-run-validation-report.md
+new file mode 100644
+index 0000000..b9aadad
+--- /dev/null
++++ b/docs/chunk-task-run-validation-report.md
+@@ -0,0 +1,196 @@
++# 検証レポート: chunk CLI による CI job 失敗時タスク起動
++
++- **検証日**: 2026-07-09
++- **検証者**: hidetaka-cci
++- **対象リポジトリ**: hidetaka-cci/ci-sandboxes
++- **対象ブランチ**: validation/chunk-task-on-fail-20260708
++
++---
++
++## 1. 検証サマリー
++
++| 主張 | 結果 | 備考 |
++|------|------|------|
++| 主張A: CI job 内で非対話実行できる | **確認済み** | `CIRCLECI_TOKEN` env var のみで動作 |
++| 主張A4: success 時は on_fail が発火しない | **確認済み** | success-control ジョブで確認 |
++| 主張B: Web UI に Chunk タスクとして出現する | **確認済み** | CLI 起動タスクが UI に表示 |
++| 主張B: デフォルトプロバイダで BYO キー不要 | **確認済み（Web UI での目視確認）** | Anthropic キー未設定で完走 |
++
++---
++
++## 2. 事前準備
++
++### 2-1. 認証設定
++
++`chunk auth status` で CircleCI トークン・Anthropic API キーの両方が Valid であることを確認した。設定は `~/.config/chunk/config.json` に保存済み。
++
++```
++CircleCI   ✓ Valid（Config file）
++Anthropic  ✓ Valid（Config file）
++```
++
++### 2-2. タスク定義 UUID の取得
++
++**問題**: `chunk task config` はインタラクティブ専用（TTY 必須）のため非対話環境では使用不可。`.chunk/run.json` の `definitions` が空の状態では `chunk task run` がエラーになる。
++
++**解決方法**: 以下の手順で UUID を取得した。
++
++1. CircleCI Web UI の Agents 画面（`https://app.circleci.com/agents/...`）からチャットを直接実行
++2. 発行された run ID（URL 末尾の UUID）で run 詳細を取得
++3. レスポンスの `pipelineDefinitionId` フィールドが definition UUID
++
++```bash
++curl -H "Circle-Token: $CIRCLECI_TOKEN" \
++  "https://circleci.com/api/v2/agents/runs/{run-id}"
++# → { "pipelineDefinitionId": "3125aecb-d02a-4fa0-b113-39752e2f8b9a", ... }
++```
++
++**補足**: `--definition` フラグには名前の代わりに UUID を直接渡すことも可能（`.chunk/run.json` の `definitions` が空でも動作する）。
++
++### 2-3. `.chunk/run.json` の設定
++
++```json
++{
++  "org_id": "0ffedcab-0755-4ea2-a76e-7f8a0b082494",
++  "project_id": "23a96b91-80ac-47b3-b0a1-8467a3ea2c92",
++  "org_type": "github",
++  "definitions": {
++    "chat": {
++      "definition_id": "3125aecb-d02a-4fa0-b113-39752e2f8b9a",
++      "default_branch": "main"
++    }
++  }
++}
++```
++
++### 2-4. CircleCI プロジェクト環境変数
++
++CircleCI API（`POST /api/v2/project/{slug}/envvar`）で以下を登録した。
++
++| 変数名 | 値 | 用途 |
++|--------|-----|------|
++| `CIRCLECI_TOKEN` | 個人 API トークン | chunk CLI の非対話認証 |
++| `CHUNK_TASK_DEFINITION` | `chat` | `--definition` に渡す定義名 |
++
++### 2-5. `.circleci/config.yml`
++
++`.circleci/validation/chunk-task-on-fail.yml` をそのままコピーして `config.yml` として配置した。
++
++---
++
++## 3. 検証設定（config.yml 概要）
++
++2つのワークフローを定義した。
++
++| ワークフロー | ジョブ | 目的 |
++|------------|--------|------|
++| `chunk-task-on-fail` | `on-fail-trigger` | 意図的に失敗させ、`when: on_fail` で `chunk task run` を起動 |
++| `chunk-task-success-control` | `success-control` | 成功時に `when: on_fail` が発火しないことを確認 |
++
++`on-fail-trigger` ジョブの step 構成：
++
++```
++1. Checkout code
++2. Install chunk CLI（GitHub Release から curl でインストール）
++3. Intentionally fail          ← exit 1 で意図的失敗
++4. Verify chunk auth (on_fail) ← CIRCLECI_TOKEN の存在確認 + chunk auth status
++5. Trigger chunk task run (on_fail) ← chunk task run --definition ... --prompt ... --json
++```
++
++---
++
++## 4. 実行結果
++
++### パイプライン情報
++
++- **パイプライン**: #57（id: `798bdb13-23b5-439c-b070-7481c5a6cf93`）
++- **トリガー方法**: カスタム Webhook トリガー（POST `https://internal.circleci.com/private/soc/e/...`）
++
++### ワークフロー結果
++
++| ワークフロー | ステータス | 確認内容 |
++|------------|-----------|---------|
++| `chunk-task-on-fail` | **failed**（期待通り） | 意図的失敗後に on_fail step が発火 |
++| `chunk-task-success-control` | **success** | on_fail step はスキップされた |
++
++### `on-fail-trigger` ジョブ ステップ結果（ジョブ #424）
++
++| ステップ | ステータス |
++|---------|-----------|
++| Install chunk CLI | success |
++| Intentionally fail | **failed** |
++| Verify chunk auth (on_fail) | success |
++| Trigger chunk task run (on_fail) | **success** |
++
++### `Trigger chunk task run` ステップの出力
++
++```
++Using definition: ****
++{
++  "runId": "8a09b5cc-1f98-4aa9-bbea-9cc72f426018",
++  "pipelineId": "95b9d61b-1bce-40d8-b350-348407e01ec1"
++}
++```
++
++- 定義名はログ上でマスク（`****`）される
++- `pipelineId: 95b9d61b-...` は Chunk タスクのパイプライン（#58）と一致
++
++### Chunk タスクパイプライン（#58）
++
++| ワークフロー | ステータス |
++|------------|-----------|
++| `setup-workflow` | success |
++| `chunk-task` | **success** |
++
++CLI から起動した Chunk タスクが CircleCI Cloud 上で正常に実行された。
++
++---
++
++## 5. 確認事項の結論
++
++### 主張A: CI job 内での非対話実行
++
++**確認済み。**
++
++- `CIRCLECI_TOKEN` 環境変数を設定するだけで認証が通る（`chunk auth set` は不要）
++- CircleCI ジョブでは `CI=true` が自動設定されるため、インタラクティブプロンプトは抑制される
++- `when: on_fail` の step として `chunk task run` を配置し、意図的失敗後に正常起動することを確認
++
++### 主張A4: success 時の非発火
++
++**確認済み。**
++
++`success-control` ジョブ（成功で終了）では `when: on_fail` step が実行されず、ジョブは success のままとなった。
++
++### 主張B: Web UI 可視性とプロバイダ
++
++**確認済み（目視確認含む）。**
++
++- CLI から起動した `runId` に対応する Chunk タスクが Web UI に出現した
++- `pipelineId` の一致により CLI 起動タスクとの対応が取れることを確認
++- Web UI の Agents チャット（BYO Anthropic キー未設定）で実行したタスクが完走しており、「CircleCI (Powered by Anthropic)」プロバイダでキー不要で動作することを目視確認
++
++---
++
++## 6. ハマりどころ・注意点
++
++| 項目 | 内容 |
++|------|------|
++| Definition UUID の入手経路 | CLI では取得不可。Web UI でチャットを一度実行 → run 詳細 API の `pipelineDefinitionId` から取得 |
++| `chunk task config` の制約 | TTY 必須のインタラクティブコマンド。CI 環境・非対話シェルでは使用不可 |
++| `--definition` への UUID 直接渡し | `run.json` の `definitions` が空でも UUID フォーマット文字列をそのまま渡せば動作する |
++| ログのマスク | `CHUNK_TASK_DEFINITION` の値はジョブログ上で `****` にマスクされる（CircleCI の env var マスク機能） |
++| プロジェクトのパイプライン設定 | カスタムパイプラインが設定されている場合、`config.yml` が自動で使われるとは限らない。Webhook トリガーの設定内容を確認すること |
++| `when: on_fail` のスコープ | 同一 job 内の step にのみ有効。workflow レベルで別 job を on_fail 起動する方式とは別 |
++
++---
++
++## 7. 成果物一覧
++
++| ファイル | 内容 |
++|---------|------|
++| `.circleci/config.yml` | 検証用 CircleCI 設定（on_fail トリガー／success-control） |
++| `.circleci/validation/chunk-task-on-fail.yml` | 同上のソース（検証用アーカイブ） |
++| `.chunk/run.json` | definition UUID を含むプロジェクト設定 |
++| `docs/chunk-task-run-setup.md` | chunk task run 実行前の準備手順書 |
++| `docs/chunk-task-run-validation-report.md` | 本レポート |
+diff --git a/package-lock.json b/package-lock.json
+index f3fa790..dfc1f19 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -9,7 +9,8 @@
+       "version": "0.0.0",
+       "devDependencies": {
+         "typescript": "~5.9.3",
+-        "vite": "^7.2.4"
++        "vite": "^7.2.4",
++        "vitest": "^4.1.10"
+       }
+     },
+     "node_modules/@esbuild/aix-ppc64": {
+@@ -454,6 +455,13 @@
+         "node": ">=18"
+       }
+     },
++    "node_modules/@jridgewell/sourcemap-codec": {
++      "version": "1.5.5",
++      "resolved": "https://registry.npmjs.org/@jridgewell/sourcemap-codec/-/sourcemap-codec-1.5.5.tgz",
++      "integrity": "sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==",
++      "dev": true,
++      "license": "MIT"
++    },
+     "node_modules/@rollup/rollup-android-arm-eabi": {
+       "version": "4.60.1",
+       "resolved": "https://registry.npmjs.org/@rollup/rollup-android-arm-eabi/-/rollup-android-arm-eabi-4.60.1.tgz",
+@@ -804,6 +812,31 @@
+         "win32"
+       ]
+     },
++    "node_modules/@standard-schema/spec": {
++      "version": "1.1.0",
++      "resolved": "https://registry.npmjs.org/@standard-schema/spec/-/spec-1.1.0.tgz",
++      "integrity": "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==",
++      "dev": true,
++      "license": "MIT"
++    },
++    "node_modules/@types/chai": {
++      "version": "5.2.3",
++      "resolved": "https://registry.npmjs.org/@types/chai/-/chai-5.2.3.tgz",
++      "integrity": "sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@types/deep-eql": "*",
++        "assertion-error": "^2.0.1"
++      }
++    },
++    "node_modules/@types/deep-eql": {
++      "version": "4.0.2",
++      "resolved": "https://registry.npmjs.org/@types/deep-eql/-/deep-eql-4.0.2.tgz",
++      "integrity": "sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==",
++      "dev": true,
++      "license": "MIT"
++    },
+     "node_modules/@types/estree": {
+       "version": "1.0.8",
+       "resolved": "https://registry.npmjs.org/@types/estree/-/estree-1.0.8.tgz",
+@@ -811,6 +844,153 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/@vitest/expect": {
++      "version": "4.1.10",
++      "resolved": "https://registry.npmjs.org/@vitest/expect/-/expect-4.1.10.tgz",
++      "integrity": "sha512-YsCn+qAk1GWjQOWFEsEcL2gNQ0zmVmQu3T03qP6UyjhtmdtwtbuI+DASn/7iQB3HGTXkdBwGddzxPlmiql5vlA==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@standard-schema/spec": "^1.1.0",
++        "@types/chai": "^5.2.2",
++        "@vitest/spy": "4.1.10",
++        "@vitest/utils": "4.1.10",
++        "chai": "^6.2.2",
++        "tinyrainbow": "^3.1.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/vitest"
++      }
++    },
++    "node_modules/@vitest/mocker": {
++      "version": "4.1.10",
++      "resolved": "https://registry.npmjs.org/@vitest/mocker/-/mocker-4.1.10.tgz",
++      "integrity": "sha512-v0xaezt+DKEmKfaxg133ldzADrwLGd7Ze1MfQQTYfvs8OqZIwbxyxaYURivwV7sWy5fqn3rH5uOrSp07bp44Ow==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@vitest/spy": "4.1.10",
++        "estree-walker": "^3.0.3",
++        "magic-string": "^0.30.21"
++      },
++      "funding": {
++        "url": "https://opencollective.com/vitest"
++      },
++      "peerDependencies": {
++        "msw": "^2.4.9",
++        "vite": "^6.0.0 || ^7.0.0 || ^8.0.0"
++      },
++      "peerDependenciesMeta": {
++        "msw": {
++          "optional": true
++        },
++        "vite": {
++          "optional": true
++        }
++      }
++    },
++    "node_modules/@vitest/pretty-format": {
++      "version": "4.1.10",
++      "resolved": "https://registry.npmjs.org/@vitest/pretty-format/-/pretty-format-4.1.10.tgz",
++      "integrity": "sha512-W1HsjSH4MXQ9YfmmhLAoIYf1HRfekQCGngeIgcei6MP5QQGWUe0gkopdZQaVCFO+JDJMrAJGwa5pRpNpvy4P8Q==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "tinyrainbow": "^3.1.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/vitest"
++      }
++    },
++    "node_modules/@vitest/runner": {
++      "version": "4.1.10",
++      "resolved": "https://registry.npmjs.org/@vitest/runner/-/runner-4.1.10.tgz",
++      "integrity": "sha512-IKI6kpIH+LmpROplyLwBBaCfMgOZOMsygVa6BARD6ahA04VRuJSa6OaVG7kRvSEMD870Vd91rSSw0eegtWyLGg==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@vitest/utils": "4.1.10",
++        "pathe": "^2.0.3"
++      },
++      "funding": {
++        "url": "https://opencollective.com/vitest"
++      }
++    },
++    "node_modules/@vitest/snapshot": {
++      "version": "4.1.10",
++      "resolved": "https://registry.npmjs.org/@vitest/snapshot/-/snapshot-4.1.10.tgz",
++      "integrity": "sha512-xRkfOT1qpTAi/Ti4Y1LtfRc3kEuqxGw59eN2jN9pRWMtS/XDevekhcFSqvQqjUNGksfjMJu3Y+oJ+4Ypn2OaJw==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@vitest/pretty-format": "4.1.10",
++        "@vitest/utils": "4.1.10",
++        "magic-string": "^0.30.21",
++        "pathe": "^2.0.3"
++      },
++      "funding": {
++        "url": "https://opencollective.com/vitest"
++      }
++    },
++    "node_modules/@vitest/spy": {
++      "version": "4.1.10",
++      "resolved": "https://registry.npmjs.org/@vitest/spy/-/spy-4.1.10.tgz",
++      "integrity": "sha512-PLf/Ugvoq5wO/b4rwYCR1h2PSIdXz7wnkQFMiUpLdtM7l6pqVFcQIBEHyT1+l+cj7mNwAfZHzqXqDyjvOuwbDw==",
++      "dev": true,
++      "license": "MIT",
++      "funding": {
++        "url": "https://opencollective.com/vitest"
++      }
++    },
++    "node_modules/@vitest/utils": {
++      "version": "4.1.10",
++      "resolved": "https://registry.npmjs.org/@vitest/utils/-/utils-4.1.10.tgz",
++      "integrity": "sha512-fy9am/HWxbaGt/Sawrp90vt6Y6jQwf1RX77cz3uwoJwJVMli/e1IEwRPnMNJ7vKfPTwo0diXifkpPvwH9v7nGA==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@vitest/pretty-format": "4.1.10",
++        "convert-source-map": "^2.0.0",
++        "tinyrainbow": "^3.1.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/vitest"
++      }
++    },
++    "node_modules/assertion-error": {
++      "version": "2.0.1",
++      "resolved": "https://registry.npmjs.org/assertion-error/-/assertion-error-2.0.1.tgz",
++      "integrity": "sha512-Izi8RQcffqCeNVgFigKli1ssklIbpHnCYc6AknXGYoB6grJqyeby7jv12JUQgmTAnIDnbck1uxksT4dzN3PWBA==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": ">=12"
++      }
++    },
++    "node_modules/chai": {
++      "version": "6.2.2",
++      "resolved": "https://registry.npmjs.org/chai/-/chai-6.2.2.tgz",
++      "integrity": "sha512-NUPRluOfOiTKBKvWPtSD4PhFvWCqOi0BGStNWs57X9js7XGTprSmFoz5F0tWhR4WPjNeR9jXqdC7/UpSJTnlRg==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/convert-source-map": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/convert-source-map/-/convert-source-map-2.0.0.tgz",
++      "integrity": "sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==",
++      "dev": true,
++      "license": "MIT"
++    },
++    "node_modules/es-module-lexer": {
++      "version": "2.3.0",
++      "resolved": "https://registry.npmjs.org/es-module-lexer/-/es-module-lexer-2.3.0.tgz",
++      "integrity": "sha512-KLdwQm2NvGLDkQDCGvmiQrhkd0JbMzXthwQAUgWjQuQdBLFa3eiBP5arXZyA+f8x+x7OXgud6bq2rxjGtHV2tw==",
++      "dev": true,
++      "license": "MIT"
++    },
+     "node_modules/esbuild": {
+       "version": "0.27.7",
+       "resolved": "https://registry.npmjs.org/esbuild/-/esbuild-0.27.7.tgz",
+@@ -853,6 +1033,26 @@
+         "@esbuild/win32-x64": "0.27.7"
+       }
+     },
++    "node_modules/estree-walker": {
++      "version": "3.0.3",
++      "resolved": "https://registry.npmjs.org/estree-walker/-/estree-walker-3.0.3.tgz",
++      "integrity": "sha512-7RUKfXgSMMkzt6ZuXmqapOurLGPPfgj6l9uRZ7lRGolvk0y2yocc35LdcxKC5PQZdn2DMqioAQ2NoWcrTKmm6g==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@types/estree": "^1.0.0"
++      }
++    },
++    "node_modules/expect-type": {
++      "version": "1.4.0",
++      "resolved": "https://registry.npmjs.org/expect-type/-/expect-type-1.4.0.tgz",
++      "integrity": "sha512-KfYbmpRm0VbLjEvVa9yGwCi9GI34xvi7A/HXYWQO65CSD2u3MczUJSuwXKFIxlGsgBQizV9q5J9NHj4VG0n+pA==",
++      "dev": true,
++      "license": "Apache-2.0",
++      "engines": {
++        "node": ">=12.0.0"
++      }
++    },
+     "node_modules/fdir": {
+       "version": "6.5.0",
+       "resolved": "https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz",
+@@ -886,6 +1086,16 @@
+         "node": "^8.16.0 || ^10.6.0 || >=11.0.0"
+       }
+     },
++    "node_modules/magic-string": {
++      "version": "0.30.21",
++      "resolved": "https://registry.npmjs.org/magic-string/-/magic-string-0.30.21.tgz",
++      "integrity": "sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@jridgewell/sourcemap-codec": "^1.5.5"
++      }
++    },
+     "node_modules/nanoid": {
+       "version": "3.3.11",
+       "resolved": "https://registry.npmjs.org/nanoid/-/nanoid-3.3.11.tgz",
+@@ -905,6 +1115,27 @@
+         "node": "^10 || ^12 || ^13.7 || ^14 || >=15.0.1"
+       }
+     },
++    "node_modules/obug": {
++      "version": "2.1.3",
++      "resolved": "https://registry.npmjs.org/obug/-/obug-2.1.3.tgz",
++      "integrity": "sha512-9miFgM2OFba7hB+pRgvtV84pYTBaoTHohvmIgiRt6dRIzbwEOIaNaP+dIlGs2fNFoB0SeISs0Jz5WFVRid6Xyg==",
++      "dev": true,
++      "funding": [
++        "https://github.com/sponsors/sxzz",
++        "https://opencollective.com/debug"
++      ],
++      "license": "MIT",
++      "engines": {
++        "node": ">=12.20.0"
++      }
++    },
++    "node_modules/pathe": {
++      "version": "2.0.3",
++      "resolved": "https://registry.npmjs.org/pathe/-/pathe-2.0.3.tgz",
++      "integrity": "sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==",
++      "dev": true,
++      "license": "MIT"
++    },
+     "node_modules/picocolors": {
+       "version": "1.1.1",
+       "resolved": "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
+@@ -1000,6 +1231,13 @@
+         "fsevents": "~2.3.2"
+       }
+     },
++    "node_modules/siginfo": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/siginfo/-/siginfo-2.0.0.tgz",
++      "integrity": "sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==",
++      "dev": true,
++      "license": "ISC"
++    },
+     "node_modules/source-map-js": {
+       "version": "1.2.1",
+       "resolved": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz",
+@@ -1010,6 +1248,37 @@
+         "node": ">=0.10.0"
+       }
+     },
++    "node_modules/stackback": {
++      "version": "0.0.2",
++      "resolved": "https://registry.npmjs.org/stackback/-/stackback-0.0.2.tgz",
++      "integrity": "sha512-1XMJE5fQo1jGH6Y/7ebnwPOBEkIEnT4QF32d5R1+VXdXveM0IBMJt8zfaxX1P3QhVwrYe+576+jkANtSS2mBbw==",
++      "dev": true,
++      "license": "MIT"
++    },
++    "node_modules/std-env": {
++      "version": "4.2.0",
++      "resolved": "https://registry.npmjs.org/std-env/-/std-env-4.2.0.tgz",
++      "integrity": "sha512-oCUKSupKTHX53EyjDtuZQ64pjLJ6yYCtpmEw0goYxtjG9KpbRe8KAsl2tBUGU9DyMcJ0RwJ8GqJAFzMXcXW1Rw==",
++      "dev": true,
++      "license": "MIT"
++    },
++    "node_modules/tinybench": {
++      "version": "2.9.0",
++      "resolved": "https://registry.npmjs.org/tinybench/-/tinybench-2.9.0.tgz",
++      "integrity": "sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==",
++      "dev": true,
++      "license": "MIT"
++    },
++    "node_modules/tinyexec": {
++      "version": "1.2.4",
++      "resolved": "https://registry.npmjs.org/tinyexec/-/tinyexec-1.2.4.tgz",
++      "integrity": "sha512-SHf/r48b7vOrjve9PxJo3MN5v5yuyjHvdUcrQffT3WXMUfnGmHDVbC4k3sHJaJTgZCwpUplIaAo5ANtMyp3YHg==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": ">=18"
++      }
++    },
+     "node_modules/tinyglobby": {
+       "version": "0.2.16",
+       "resolved": "https://registry.npmjs.org/tinyglobby/-/tinyglobby-0.2.16.tgz",
+@@ -1027,6 +1296,16 @@
+         "url": "https://github.com/sponsors/SuperchupuDev"
+       }
+     },
++    "node_modules/tinyrainbow": {
++      "version": "3.1.0",
++      "resolved": "https://registry.npmjs.org/tinyrainbow/-/tinyrainbow-3.1.0.tgz",
++      "integrity": "sha512-Bf+ILmBgretUrdJxzXM0SgXLZ3XfiaUuOj/IKQHuTXip+05Xn+uyEYdVg0kYDipTBcLrCVyUzAPz7QmArb0mmw==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": ">=14.0.0"
++      }
++    },
+     "node_modules/typescript": {
+       "version": "5.9.3",
+       "resolved": "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz",
+@@ -1047,6 +1326,7 @@
+       "integrity": "sha512-Bby3NOsna2jsjfLVOHKes8sGwgl4TT0E6vvpYgnAYDIF/tie7MRaFthmKuHx1NSXjiTueXH3do80FMQgvEktRg==",
+       "dev": true,
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "esbuild": "^0.27.0",
+         "fdir": "^6.5.0",
+@@ -1115,6 +1395,113 @@
+           "optional": true
+         }
+       }
++    },
++    "node_modules/vitest": {
++      "version": "4.1.10",
++      "resolved": "https://registry.npmjs.org/vitest/-/vitest-4.1.10.tgz",
++      "integrity": "sha512-R9jUTe5S4Qb0HCd4TNqpC7oGcrMssMRGXLW80ubjWsW9VH5GF8y1Y0SFLY9AbqSk6nt0PnOx4H4WNJYZ13GUPw==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@vitest/expect": "4.1.10",
++        "@vitest/mocker": "4.1.10",
++        "@vitest/pretty-format": "4.1.10",
++        "@vitest/runner": "4.1.10",
++        "@vitest/snapshot": "4.1.10",
++        "@vitest/spy": "4.1.10",
++        "@vitest/utils": "4.1.10",
++        "es-module-lexer": "^2.0.0",
++        "expect-type": "^1.3.0",
++        "magic-string": "^0.30.21",
++        "obug": "^2.1.1",
++        "pathe": "^2.0.3",
++        "picomatch": "^4.0.3",
++        "std-env": "^4.0.0-rc.1",
++        "tinybench": "^2.9.0",
++        "tinyexec": "^1.0.2",
++        "tinyglobby": "^0.2.15",
++        "tinyrainbow": "^3.1.0",
++        "vite": "^6.0.0 || ^7.0.0 || ^8.0.0",
++        "why-is-node-running": "^2.3.0"
++      },
++      "bin": {
++        "vitest": "vitest.mjs"
++      },
++      "engines": {
++        "node": "^20.0.0 || ^22.0.0 || >=24.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/vitest"
++      },
++      "peerDependencies": {
++        "@edge-runtime/vm": "*",
++        "@opentelemetry/api": "^1.9.0",
++        "@types/node": "^20.0.0 || ^22.0.0 || >=24.0.0",
++        "@vitest/browser-playwright": "4.1.10",
++        "@vitest/browser-preview": "4.1.10",
++        "@vitest/browser-webdriverio": "4.1.10",
++        "@vitest/coverage-istanbul": "4.1.10",
++        "@vitest/coverage-v8": "4.1.10",
++        "@vitest/ui": "4.1.10",
++        "happy-dom": "*",
++        "jsdom": "*",
++        "vite": "^6.0.0 || ^7.0.0 || ^8.0.0"
++      },
++      "peerDependenciesMeta": {
++        "@edge-runtime/vm": {
++          "optional": true
++        },
++        "@opentelemetry/api": {
++          "optional": true
++        },
++        "@types/node": {
++          "optional": true
++        },
++        "@vitest/browser-playwright": {
++          "optional": true
++        },
++        "@vitest/browser-preview": {
++          "optional": true
++        },
++        "@vitest/browser-webdriverio": {
++          "optional": true
++        },
++        "@vitest/coverage-istanbul": {
++          "optional": true
++        },
++        "@vitest/coverage-v8": {
++          "optional": true
++        },
++        "@vitest/ui": {
++          "optional": true
++        },
++        "happy-dom": {
++          "optional": true
++        },
++        "jsdom": {
++          "optional": true
++        },
++        "vite": {
++          "optional": false
++        }
++      }
++    },
++    "node_modules/why-is-node-running": {
++      "version": "2.3.0",
++      "resolved": "https://registry.npmjs.org/why-is-node-running/-/why-is-node-running-2.3.0.tgz",
++      "integrity": "sha512-hUrmaWBdVDcxvYqnyh09zunKzROWjbZTiNy8dBEjkS7ehEDQibXJ7XvlmtbwuTclUiIyN+CyXQD4Vmko8fNm8w==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "siginfo": "^2.0.0",
++        "stackback": "0.0.2"
++      },
++      "bin": {
++        "why-is-node-running": "cli.js"
++      },
++      "engines": {
++        "node": ">=8"
++      }
+     }
+   }
+ }
+diff --git a/package.json b/package.json
+index 30f0519..e6920c3 100644
+--- a/package.json
++++ b/package.json
+@@ -6,10 +6,12 @@
+   "scripts": {
+     "dev": "vite",
+     "build": "tsc && vite build",
+-    "preview": "vite preview"
++    "preview": "vite preview",
++    "test": "vitest run"
+   },
+   "devDependencies": {
+     "typescript": "~5.9.3",
+-    "vite": "^7.2.4"
++    "vite": "^7.2.4",
++    "vitest": "^4.1.10"
+   }
+ }
+diff --git a/src/math.test.ts b/src/math.test.ts
+new file mode 100644
+index 0000000..148da93
+--- /dev/null
++++ b/src/math.test.ts
+@@ -0,0 +1,22 @@
++import { describe, it, expect } from 'vitest'
++import { multiply, add } from './math'
++
++describe('multiply', () => {
++  it('multiplies two positive numbers', () => {
++    expect(multiply(3, 4)).toBe(12)
++  })
++
++  it('multiplies by zero', () => {
++    expect(multiply(5, 0)).toBe(0)
++  })
++
++  it('multiplies negative numbers', () => {
++    expect(multiply(-2, 3)).toBe(-6)
++  })
++})
++
++describe('add', () => {
++  it('adds two numbers', () => {
++    expect(add(2, 3)).toBe(5)
++  })
++})
+diff --git a/src/math.ts b/src/math.ts
+new file mode 100644
+index 0000000..eb6e691
+--- /dev/null
++++ b/src/math.ts
+@@ -0,0 +1,7 @@
++export function multiply(a: number, b: number): number {
++  return a + b
++}
++
++export function add(a: number, b: number): number {
++  return a + b
++}

@@ -1,0 +1,27 @@
+diff --git a/src/math.test.ts b/src/math.test.ts
+index 26ece66..148da93 100644
+--- a/src/math.test.ts
++++ b/src/math.test.ts
+@@ -1,5 +1,5 @@
+ import { describe, it, expect } from 'vitest'
+-import { add, multiply } from './math'
++import { multiply, add } from './math'
+ 
+ describe('multiply', () => {
+   it('multiplies two positive numbers', () => {
+diff --git a/src/math.ts b/src/math.ts
+index fb76720..0b5727c 100644
+--- a/src/math.ts
++++ b/src/math.ts
+@@ -1,7 +1,7 @@
+-export function add(a: number, b: number): number {
+-  return a + b
+-}
+-
+ export function multiply(a: number, b: number): number {
+   return a * b
+ }
++
++export function add(a: number, b: number): number {
++  return a + b
++}

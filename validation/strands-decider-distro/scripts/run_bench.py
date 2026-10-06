@@ -10,23 +10,15 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+
+from load_pinned import load_versions, resolve_decider_path  # noqa: E402
 
 NOUL = "Does this change alter runtime behavior?"
 SCORE_Q = "What is the risk level of this change?"
 SCORE_LEVELS = ["low", "medium", "high", "critical"]
 CHOICE_Q = "Which test suites should run?"
 CHOICE_OPTS = ["smoke", "unit", "integration", "e2e", "config"]
-
-
-def load_versions() -> dict[str, str]:
-    env: dict[str, str] = {}
-    for line in (ROOT / "versions.env").read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        k, v = line.split("=", 1)
-        env[k] = v
-    return env
 
 
 def peak_rss_kb() -> int:
@@ -60,14 +52,9 @@ def format_answers(response) -> str:
 def main() -> int:
     method = os.environ.get("METHOD", "A")
     versions = load_versions()
-    hub_id = versions["DECIDER_HUB_ID"]
-    # Method B may prefer a local materialized checkpoint baked into the image.
-    local_marker = Path("/opt/models/DECIDER_LOCAL_PATH")
-    if method == "B" and local_marker.is_file():
-        local_path = local_marker.read_text().strip()
-        if local_path and Path(local_path).is_dir():
-            hub_id = local_path
-            print(f"Using baked local checkpoint: {hub_id}", flush=True)
+    checkpoint = resolve_decider_path(versions)
+    print(f"CHECKPOINT={checkpoint}", flush=True)
+    print(f"HF_HUB_OFFLINE={os.environ.get('HF_HUB_OFFLINE')}", flush=True)
     out_dir = Path(os.environ.get("BENCH_OUT", "bench-out"))
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -85,15 +72,10 @@ def main() -> int:
 
     print(f"=== [{method}] load engine ===", flush=True)
     t0 = time.perf_counter()
-    engine = load_engine(hub_id, device="cpu")
+    engine = load_engine(checkpoint, device="cpu")
     load_s = time.perf_counter() - t0
     peak_after_load = peak_rss_kb()
-    base_rev = None
-    cfg = getattr(getattr(engine, "model", None), "config", None)
-    if cfg is not None:
-        base_rev = getattr(cfg, "base_revision", None)
     print(f"LOAD_SECONDS={load_s:.3f}", flush=True)
-    print(f"LOADED_BASE_REVISION={base_rev}", flush=True)
 
     small = (ROOT / "inputs" / "diff-small.txt").read_text()
     large = (ROOT / "inputs" / "diff-large.txt").read_text()
@@ -116,13 +98,12 @@ def main() -> int:
     metrics = {
         "method": method,
         "strands_decider_version": versions["STRANDS_DECIDER_VERSION"],
-        "decider_hub_id": hub_id,
+        "decider_hub_id": versions["DECIDER_HUB_ID"],
+        "decider_revision": versions["DECIDER_REVISION"],
+        "checkpoint": checkpoint,
         "base_model_id": versions["BASE_MODEL_ID"],
         "base_model_revision_expected": versions["BASE_MODEL_REVISION"],
-        "base_model_revision_loaded": base_rev,
-        "revision_match": (
-            base_rev == versions["BASE_MODEL_REVISION"] if base_rev else None
-        ),
+        "hf_hub_offline": os.environ.get("HF_HUB_OFFLINE"),
         "load_seconds": round(load_s, 3),
         "infer_small_seconds": round(small_s, 3),
         "infer_large_seconds": round(large_s, 3),

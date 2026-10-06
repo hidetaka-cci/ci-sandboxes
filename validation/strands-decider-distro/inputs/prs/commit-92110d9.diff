@@ -1,0 +1,110 @@
+diff --git a/package.json b/package.json
+index 30f0519..e6920c3 100644
+--- a/package.json
++++ b/package.json
+@@ -6,10 +6,12 @@
+   "scripts": {
+     "dev": "vite",
+     "build": "tsc && vite build",
+-    "preview": "vite preview"
++    "preview": "vite preview",
++    "test": "vitest run"
+   },
+   "devDependencies": {
+     "typescript": "~5.9.3",
+-    "vite": "^7.2.4"
++    "vite": "^7.2.4",
++    "vitest": "^4.1.10"
+   }
+ }
+diff --git a/src/counter.test.ts b/src/counter.test.ts
+new file mode 100644
+index 0000000..fbd6ded
+--- /dev/null
++++ b/src/counter.test.ts
+@@ -0,0 +1,26 @@
++import { describe, it, expect } from 'vitest'
++import { increment, decrement } from './counter'
++
++describe('increment', () => {
++  it('0 から 1 に増える', () => {
++    expect(increment(0)).toBe(1)
++  })
++
++  it('任意の値から 1 増える', () => {
++    expect(increment(5)).toBe(6)
++  })
++})
++
++describe('decrement', () => {
++  it('1 から 0 に減る', () => {
++    expect(decrement(1)).toBe(0)
++  })
++
++  it('任意の値から 1 減る', () => {
++    expect(decrement(5)).toBe(4)
++  })
++
++  it('負の値にもなれる', () => {
++    expect(decrement(0)).toBe(-1)
++  })
++})
+diff --git a/src/counter.ts b/src/counter.ts
+index 09e5afd..df385c6 100644
+--- a/src/counter.ts
++++ b/src/counter.ts
+@@ -1,9 +1,23 @@
+-export function setupCounter(element: HTMLButtonElement) {
++export function increment(count: number): number {
++  return count + 1
++}
++
++export function decrement(count: number): number {
++  return count - 1
++}
++
++export function setupCounter(incrementEl: HTMLButtonElement, decrementEl: HTMLButtonElement, displayEl: HTMLElement) {
+   let counter = 0
+-  const setCounter = (count: number) => {
+-    counter = count
+-    element.innerHTML = `count is ${counter}`
++  const render = () => {
++    displayEl.textContent = `count is ${counter}`
+   }
+-  element.addEventListener('click', () => setCounter(counter + 1))
+-  setCounter(0)
++  incrementEl.addEventListener('click', () => {
++    counter = increment(counter)
++    render()
++  })
++  decrementEl.addEventListener('click', () => {
++    counter = decrement(counter)
++    render()
++  })
++  render()
+ }
+diff --git a/src/main.ts b/src/main.ts
+index 6396b50..05f1322 100644
+--- a/src/main.ts
++++ b/src/main.ts
+@@ -13,7 +13,9 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
+     </a>
+     <h1>Vite + TypeScript</h1>
+     <div class="card">
+-      <button id="counter" type="button"></button>
++      <p id="counter-display"></p>
++      <button id="increment" type="button">+</button>
++      <button id="decrement" type="button">-</button>
+     </div>
+     <p class="read-the-docs">
+       Click on the Vite and TypeScript logos to learn more
+@@ -21,4 +23,8 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
+   </div>
+ `
+ 
+-setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
++setupCounter(
++  document.querySelector<HTMLButtonElement>('#increment')!,
++  document.querySelector<HTMLButtonElement>('#decrement')!,
++  document.querySelector<HTMLElement>('#counter-display')!,
++)
