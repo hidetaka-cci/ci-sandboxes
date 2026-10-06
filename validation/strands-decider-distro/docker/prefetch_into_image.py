@@ -19,7 +19,7 @@ def main() -> None:
     decider_id = os.environ["DECIDER_HUB_ID"]
     base_id = os.environ["BASE_MODEL_ID"]
     base_rev = os.environ["BASE_MODEL_REVISION"]
-    hub = Path(os.environ["HF_HOME"]) / "hub"
+    hub = Path(os.environ.get("HF_HUB_CACHE") or (Path(os.environ["HF_HOME"]) / "hub"))
 
     decider = snapshot_download(decider_id)
     base = snapshot_download(base_id, revision=base_rev)

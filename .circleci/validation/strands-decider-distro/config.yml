@@ -28,9 +28,10 @@ executors:
     resource_class: xlarge
     working_directory: ~/project
     environment:
-      VENV_DIR: /home/circleci/venv
-      HF_HOME: /home/circleci/.cache/huggingface
-      TRANSFORMERS_CACHE: /home/circleci/.cache/huggingface/hub
+      VENV_DIR: /opt/venv
+      HF_HOME: /opt/hf-cache
+      HF_HUB_CACHE: /opt/hf-cache/hub
+      TRANSFORMERS_CACHE: /opt/hf-cache/hub
       BENCH_OUT: /home/circleci/project/bench-out
       HF_HUB_OFFLINE: "1"
       TRANSFORMERS_OFFLINE: "1"
@@ -149,6 +150,17 @@ jobs:
     executor: baked-xlarge
     steps:
       - checkout
+      - run:
+          name: Verify baked HF cache is present
+          command: |
+            set -euo pipefail
+            echo "HF_HOME=${HF_HOME}"
+            echo "VENV_DIR=${VENV_DIR}"
+            du -sh "${HF_HOME}" "${VENV_DIR}"
+            ls -la "${HF_HOME}/hub" | head -50
+            test -d "${HF_HOME}/hub/models--Qwen--Qwen3.5-2B-Base"
+            test -d "${HF_HOME}/hub/models--StrandsAgents--strands-decider-2B-hobson-v19"
+            test -x "${VENV_DIR}/bin/python"
       - run-timed-bench:
           method: B
 
