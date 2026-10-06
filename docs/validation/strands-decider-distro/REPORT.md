@@ -78,15 +78,15 @@ A/C で small/large とも一致（例: small `noul=0.467`, risk≈1.17, suites�
 
 A・C ともジョブ全体が約 1.5〜2.1 分で、提案の「追加 2 分」には収まる。
 
-## 採用
+## 採用（配布方式）
 
-**方式 C（restore_cache）を採用する。**
+**方式 C（restore_cache）を配布手段としては採用。**  
+ただし続く確信度検証の結果、**dynamic config への組み込み自体は見送り**（詳細は `CONFIDENCE-REPORT.md`）。
 
-次の作業（この計画の外）:
+フォローアップで実施済み:
 
-- dynamic config（path-filtering / continuation）への組み込み
-- 必要なら時間帯ずらしで C を追加計測（spin-up / restore ばらつき）
-- B を再検討するならセルフホスト常駐 or 社内レジストリ＋確実なフル実体化が前提
+- C に `HF_HUB_OFFLINE=1` と Decider revision ピンを追加
+- 実 PR 17 件 × 質問再設計で確信度 ≥ 0.9 を測定 → **0/119**
 
 ## 参照
 

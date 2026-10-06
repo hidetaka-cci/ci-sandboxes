@@ -1,0 +1,1025 @@
+{
+  "threshold": 0.9,
+  "noul_confident_rule": "noul>=0.9 or noul<=0.1",
+  "load_seconds": 4.091,
+  "decider_hub_id": "StrandsAgents/strands-decider-2B-hobson-v19",
+  "decider_revision": "bb282d786bc251fd4e3068de3ada9ddbb38127cd",
+  "base_model_revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+  "hf_hub_offline": "1",
+  "diff_count": 17,
+  "answer_confidence_rate": 0.0,
+  "confident_answers": 0,
+  "total_answers": 119,
+  "diffs_all_answers_confident": 0,
+  "diffs_routing_proxy_ready": 0,
+  "by_question": {
+    "behavior_change": {
+      "answers": 17,
+      "confident": 0,
+      "rate": 0.0
+    },
+    "risk": {
+      "answers": 17,
+      "confident": 0,
+      "rate": 0.0
+    },
+    "need_unit": {
+      "answers": 17,
+      "confident": 0,
+      "rate": 0.0
+    },
+    "need_smoke": {
+      "answers": 17,
+      "confident": 0,
+      "rate": 0.0
+    },
+    "need_integration": {
+      "answers": 17,
+      "confident": 0,
+      "rate": 0.0
+    },
+    "need_e2e": {
+      "answers": 17,
+      "confident": 0,
+      "rate": 0.0
+    },
+    "need_config": {
+      "answers": 17,
+      "confident": 0,
+      "rate": 0.0
+    }
+  },
+  "per_diff": [
+    {
+      "id": "commit-0ae9290.diff",
+      "bytes": 695,
+      "infer_seconds": 6.866,
+      "confident_answers": 0,
+      "total_answers": 7,
+      "answers": {
+        "behavior_change": {
+          "type": "noul",
+          "noul": 0.5057,
+          "confident": false,
+          "derived_confidence": 0.0114
+        },
+        "risk": {
+          "type": "score",
+          "score": 1.1263,
+          "confidence": 0.6876,
+          "confident": false,
+          "probabilities": {
+            "0": 0.1436,
+            "1": 0.623,
+            "2": 0.1969,
+            "3": 0.0365
+          }
+        },
+        "need_unit": {
+          "type": "noul",
+          "noul": 0.6864,
+          "confident": false,
+          "derived_confidence": 0.3728
+        },
+        "need_smoke": {
+          "type": "noul",
+          "noul": 0.7592,
+          "confident": false,
+          "derived_confidence": 0.5184
+        },
+        "need_integration": {
+          "type": "noul",
+          "noul": 0.2593,
+          "confident": false,
+          "derived_confidence": 0.4814
+        },
+        "need_e2e": {
+          "type": "noul",
+          "noul": 0.2455,
+          "confident": false,
+          "derived_confidence": 0.509
+        },
+        "need_config": {
+          "type": "noul",
+          "noul": 0.3253,
+          "confident": false,
+          "derived_confidence": 0.3494
+        }
+      }
+    },
+    {
+      "id": "commit-5cb1dd1.diff",
+      "bytes": 917,
+      "infer_seconds": 7.081,
+      "confident_answers": 0,
+      "total_answers": 7,
+      "answers": {
+        "behavior_change": {
+          "type": "noul",
+          "noul": 0.5601,
+          "confident": false,
+          "derived_confidence": 0.1202
+        },
+        "risk": {
+          "type": "score",
+          "score": 1.2208,
+          "confidence": 0.6806,
+          "confident": false,
+          "probabilities": {
+            "0": 0.1178,
+            "1": 0.5808,
+            "2": 0.2642,
+            "3": 0.0372
+          }
+        },
+        "need_unit": {
+          "type": "noul",
+          "noul": 0.6925,
+          "confident": false,
+          "derived_confidence": 0.385
+        },
+        "need_smoke": {
+          "type": "noul",
+          "noul": 0.7567,
+          "confident": false,
+          "derived_confidence": 0.5134
+        },
+        "need_integration": {
+          "type": "noul",
+          "noul": 0.2403,
+          "confident": false,
+          "derived_confidence": 0.5194
+        },
+        "need_e2e": {
+          "type": "noul",
+          "noul": 0.236,
+          "confident": false,
+          "derived_confidence": 0.528
+        },
+        "need_config": {
+          "type": "noul",
+          "noul": 0.2871,
+          "confident": false,
+          "derived_confidence": 0.4258
+        }
+      }
+    },
+    {
+      "id": "commit-92110d9.diff",
+      "bytes": 3076,
+      "infer_seconds": 10.395,
+      "confident_answers": 0,
+      "total_answers": 7,
+      "answers": {
+        "behavior_change": {
+          "type": "noul",
+          "noul": 0.5258,
+          "confident": false,
+          "derived_confidence": 0.0516
+        },
+        "risk": {
+          "type": "score",
+          "score": 1.2385,
+          "confidence": 0.6756,
+          "confident": false,
+          "probabilities": {
+            "0": 0.1168,
+            "1": 0.5655,
+            "2": 0.2802,
+            "3": 0.0376
+          }
+        },
+        "need_unit": {
+          "type": "noul",
+          "noul": 0.5967,
+          "confident": false,
+          "derived_confidence": 0.1934
+        },
+        "need_smoke": {
+          "type": "noul",
+          "noul": 0.6811,
+          "confident": false,
+          "derived_confidence": 0.3622
+        },
+        "need_integration": {
+          "type": "noul",
+          "noul": 0.2067,
+          "confident": false,
+          "derived_confidence": 0.5866
+        },
+        "need_e2e": {
+          "type": "noul",
+          "noul": 0.2261,
+          "confident": false,
+          "derived_confidence": 0.5478
+        },
+        "need_config": {
+          "type": "noul",
+          "noul": 0.2341,
+          "confident": false,
+          "derived_confidence": 0.5318
+        }
+      }
+    },
+    {
+      "id": "commit-a1d4e29.diff",
+      "bytes": 603,
+      "infer_seconds": 6.468,
+      "confident_answers": 0,
+      "total_answers": 7,
+      "answers": {
+        "behavior_change": {
+          "type": "noul",
+          "noul": 0.3386,
+          "confident": false,
+          "derived_confidence": 0.3228
+        },
+        "risk": {
+          "type": "score",
+          "score": 1.0779,
+          "confidence": 0.7579,
+          "confident": false,
+          "probabilities": {
+            "0": 0.1092,
+            "1": 0.7402,
+            "2": 0.114,
+            "3": 0.0366
+          }
+        },
+        "need_unit": {
+          "type": "noul",
+          "noul": 0.5197,
+          "confident": false,
+          "derived_confidence": 0.0394
+        },
+        "need_smoke": {
+          "type": "noul",
+          "noul": 0.7436,
+          "confident": false,
+          "derived_confidence": 0.4872
+        },
+        "need_integration": {
+          "type": "noul",
+          "noul": 0.2854,
+          "confident": false,
+          "derived_confidence": 0.4292
+        },
+        "need_e2e": {
+          "type": "noul",
+          "noul": 0.2666,
+          "confident": false,
+          "derived_confidence": 0.4668
+        },
+        "need_config": {
+          "type": "noul",
+          "noul": 0.4654,
+          "confident": false,
+          "derived_confidence": 0.0692
+        }
+      }
+    },
+    {
+      "id": "commit-b38ff20.diff",
+      "bytes": 3639,
+      "infer_seconds": 10.416,
+      "confident_answers": 0,
+      "total_answers": 7,
+      "answers": {
+        "behavior_change": {
+          "type": "noul",
+          "noul": 0.3954,
+          "confident": false,
+          "derived_confidence": 0.2092
+        },
+        "risk": {
+          "type": "score",
+          "score": 1.1022,
+          "confidence": 0.7207,
+          "confident": false,
+          "probabilities": {
+            "0": 0.1236,
+            "1": 0.6902,
+            "2": 0.1465,
+            "3": 0.0397
+          }
+        },
+        "need_unit": {
+          "type": "noul",
+          "noul": 0.4082,
+          "confident": false,
+          "derived_confidence": 0.1836
+        },
+        "need_smoke": {
+          "type": "noul",
+          "noul": 0.6845,
+          "confident": false,
+          "derived_confidence": 0.369
+        },
+        "need_integration": {
+          "type": "noul",
+          "noul": 0.2712,
+          "confident": false,
+          "derived_confidence": 0.4576
+        },
+        "need_e2e": {
+          "type": "noul",
+          "noul": 0.3092,
+          "confident": false,
+          "derived_confidence": 0.3816
+        },
+        "need_config": {
+          "type": "noul",
+          "noul": 0.7061,
+          "confident": false,
+          "derived_confidence": 0.4122
+        }
+      }
+    },
+    {
+      "id": "pr-01.diff",
+      "bytes": 2741,
+      "infer_seconds": 8.347,
+      "confident_answers": 0,
+      "total_answers": 7,
+      "answers": {
+        "behavior_change": {
+          "type": "noul",
+          "noul": 0.3144,
+          "confident": false,
+          "derived_confidence": 0.3712
+        },
+        "risk": {
+          "type": "score",
+          "score": 0.9654,
+          "confidence": 0.6966,
+          "confident": false,
+          "probabilities": {
+            "0": 0.211,
+            "1": 0.6477,
+            "2": 0.1064,
+            "3": 0.035
+          }
+        },
+        "need_unit": {
+          "type": "noul",
+          "noul": 0.324,
+          "confident": false,
+          "derived_confidence": 0.352
+        },
+        "need_smoke": {
+          "type": "noul",
+          "noul": 0.6913,
+          "confident": false,
+          "derived_confidence": 0.3826
+        },
+        "need_integration": {
+          "type": "noul",
+          "noul": 0.2337,
+          "confident": false,
+          "derived_confidence": 0.5326
+        },
+        "need_e2e": {
+          "type": "noul",
+          "noul": 0.2137,
+          "confident": false,
+          "derived_confidence": 0.5726
+        },
+        "need_config": {
+          "type": "noul",
+          "noul": 0.7592,
+          "confident": false,
+          "derived_confidence": 0.5184
+        }
+      }
+    },
+    {
+      "id": "pr-02.diff",
+      "bytes": 4848,
+      "infer_seconds": 11.141,
+      "confident_answers": 0,
+      "total_answers": 7,
+      "answers": {
+        "behavior_change": {
+          "type": "noul",
+          "noul": 0.299,
+          "confident": false,
+          "derived_confidence": 0.402
+        },
+        "risk": {
+          "type": "score",
+          "score": 1.1185,
+          "confidence": 0.5426,
+          "confident": false,
+          "probabilities": {
+            "0": 0.216,
+            "1": 0.5491,
+            "2": 0.1353,
+            "3": 0.0996
+          }
+        },
+        "need_unit": {
+          "type": "noul",
+          "noul": 0.2991,
+          "confident": false,
+          "derived_confidence": 0.4018
+        },
+        "need_smoke": {
+          "type": "noul",
+          "noul": 0.6532,
+          "confident": false,
+          "derived_confidence": 0.3064
+        },
+        "need_integration": {
+          "type": "noul",
+          "noul": 0.1797,
+          "confident": false,
+          "derived_confidence": 0.6406
+        },
+        "need_e2e": {
+          "type": "noul",
+          "noul": 0.2046,
+          "confident": false,
+          "derived_confidence": 0.5908
+        },
+        "need_config": {
+          "type": "noul",
+          "noul": 0.7891,
+          "confident": false,
+          "derived_confidence": 0.5782
+        }
+      }
+    },
+    {
+      "id": "pr-03.diff",
+      "bytes": 8033,
+      "infer_seconds": 14.714,
+      "confident_answers": 0,
+      "total_answers": 7,
+      "answers": {
+        "behavior_change": {
+          "type": "noul",
+          "noul": 0.2604,
+          "confident": false,
+          "derived_confidence": 0.4792
+        },
+        "risk": {
+          "type": "score",
+          "score": 0.9989,
+          "confidence": 0.6833,
+          "confident": false,
+          "probabilities": {
+            "0": 0.1999,
+            "1": 0.6407,
+            "2": 0.1199,
+            "3": 0.0395
+          }
+        },
+        "need_unit": {
+          "type": "noul",
+          "noul": 0.3263,
+          "confident": false,
+          "derived_confidence": 0.3474
+        },
+        "need_smoke": {
+          "type": "noul",
+          "noul": 0.7285,
+          "confident": false,
+          "derived_confidence": 0.457
+        },
+        "need_integration": {
+          "type": "noul",
+          "noul": 0.2214,
+          "confident": false,
+          "derived_confidence": 0.5572
+        },
+        "need_e2e": {
+          "type": "noul",
+          "noul": 0.1884,
+          "confident": false,
+          "derived_confidence": 0.6232
+        },
+        "need_config": {
+          "type": "noul",
+          "noul": 0.8187,
+          "confident": false,
+          "derived_confidence": 0.6374
+        }
+      }
+    },
+    {
+      "id": "pr-04.diff",
+      "bytes": 4573,
+      "infer_seconds": 10.953,
+      "confident_answers": 0,
+      "total_answers": 7,
+      "answers": {
+        "behavior_change": {
+          "type": "noul",
+          "noul": 0.2844,
+          "confident": false,
+          "derived_confidence": 0.4312
+        },
+        "risk": {
+          "type": "score",
+          "score": 1.1036,
+          "confidence": 0.5717,
+          "confident": false,
+          "probabilities": {
+            "0": 0.2023,
+            "1": 0.5819,
+            "2": 0.1258,
+            "3": 0.0901
+          }
+        },
+        "need_unit": {
+          "type": "noul",
+          "noul": 0.2913,
+          "confident": false,
+          "derived_confidence": 0.4174
+        },
+        "need_smoke": {
+          "type": "noul",
+          "noul": 0.7064,
+          "confident": false,
+          "derived_confidence": 0.4128
+        },
+        "need_integration": {
+          "type": "noul",
+          "noul": 0.1924,
+          "confident": false,
+          "derived_confidence": 0.6152
+        },
+        "need_e2e": {
+          "type": "noul",
+          "noul": 0.2129,
+          "confident": false,
+          "derived_confidence": 0.5742
+        },
+        "need_config": {
+          "type": "noul",
+          "noul": 0.7825,
+          "confident": false,
+          "derived_confidence": 0.565
+        }
+      }
+    },
+    {
+      "id": "pr-05.diff",
+      "bytes": 8645,
+      "infer_seconds": 20.175,
+      "confident_answers": 0,
+      "total_answers": 7,
+      "answers": {
+        "behavior_change": {
+          "type": "noul",
+          "noul": 0.3002,
+          "confident": false,
+          "derived_confidence": 0.3996
+        },
+        "risk": {
+          "type": "score",
+          "score": 1.0955,
+          "confidence": 0.6584,
+          "confident": false,
+          "probabilities": {
+            "0": 0.1734,
+            "1": 0.6008,
+            "2": 0.1827,
+            "3": 0.0431
+          }
+        },
+        "need_unit": {
+          "type": "noul",
+          "noul": 0.262,
+          "confident": false,
+          "derived_confidence": 0.476
+        },
+        "need_smoke": {
+          "type": "noul",
+          "noul": 0.487,
+          "confident": false,
+          "derived_confidence": 0.026
+        },
+        "need_integration": {
+          "type": "noul",
+          "noul": 0.2259,
+          "confident": false,
+          "derived_confidence": 0.5482
+        },
+        "need_e2e": {
+          "type": "noul",
+          "noul": 0.1958,
+          "confident": false,
+          "derived_confidence": 0.6084
+        },
+        "need_config": {
+          "type": "noul",
+          "noul": 0.6589,
+          "confident": false,
+          "derived_confidence": 0.3178
+        }
+      }
+    },
+    {
+      "id": "pr-06.diff",
+      "bytes": 43174,
+      "infer_seconds": 28.04,
+      "confident_answers": 0,
+      "total_answers": 7,
+      "answers": {
+        "behavior_change": {
+          "type": "noul",
+          "noul": 0.2205,
+          "confident": false,
+          "derived_confidence": 0.559
+        },
+        "risk": {
+          "type": "score",
+          "score": 1.011,
+          "confidence": 0.6389,
+          "confident": false,
+          "probabilities": {
+            "0": 0.2287,
+            "1": 0.574,
+            "2": 0.1549,
+            "3": 0.0424
+          }
+        },
+        "need_unit": {
+          "type": "noul",
+          "noul": 0.2407,
+          "confident": false,
+          "derived_confidence": 0.5186
+        },
+        "need_smoke": {
+          "type": "noul",
+          "noul": 0.5162,
+          "confident": false,
+          "derived_confidence": 0.0324
+        },
+        "need_integration": {
+          "type": "noul",
+          "noul": 0.2068,
+          "confident": false,
+          "derived_confidence": 0.5864
+        },
+        "need_e2e": {
+          "type": "noul",
+          "noul": 0.1768,
+          "confident": false,
+          "derived_confidence": 0.6464
+        },
+        "need_config": {
+          "type": "noul",
+          "noul": 0.5079,
+          "confident": false,
+          "derived_confidence": 0.0158
+        }
+      }
+    },
+    {
+      "id": "pr-07.diff",
+      "bytes": 1415,
+      "infer_seconds": 12.328,
+      "confident_answers": 0,
+      "total_answers": 7,
+      "answers": {
+        "behavior_change": {
+          "type": "noul",
+          "noul": 0.6322,
+          "confident": false,
+          "derived_confidence": 0.2644
+        },
+        "risk": {
+          "type": "score",
+          "score": 1.2416,
+          "confidence": 0.6788,
+          "confident": false,
+          "probabilities": {
+            "0": 0.1147,
+            "1": 0.5652,
+            "2": 0.284,
+            "3": 0.0362
+          }
+        },
+        "need_unit": {
+          "type": "noul",
+          "noul": 0.7466,
+          "confident": false,
+          "derived_confidence": 0.4932
+        },
+        "need_smoke": {
+          "type": "noul",
+          "noul": 0.7996,
+          "confident": false,
+          "derived_confidence": 0.5992
+        },
+        "need_integration": {
+          "type": "noul",
+          "noul": 0.2583,
+          "confident": false,
+          "derived_confidence": 0.4834
+        },
+        "need_e2e": {
+          "type": "noul",
+          "noul": 0.2034,
+          "confident": false,
+          "derived_confidence": 0.5932
+        },
+        "need_config": {
+          "type": "noul",
+          "noul": 0.2748,
+          "confident": false,
+          "derived_confidence": 0.4504
+        }
+      }
+    },
+    {
+      "id": "pr-08.diff",
+      "bytes": 7278,
+      "infer_seconds": 17.558,
+      "confident_answers": 0,
+      "total_answers": 7,
+      "answers": {
+        "behavior_change": {
+          "type": "noul",
+          "noul": 0.3887,
+          "confident": false,
+          "derived_confidence": 0.2226
+        },
+        "risk": {
+          "type": "score",
+          "score": 1.0447,
+          "confidence": 0.7079,
+          "confident": false,
+          "probabilities": {
+            "0": 0.1617,
+            "1": 0.668,
+            "2": 0.1342,
+            "3": 0.0361
+          }
+        },
+        "need_unit": {
+          "type": "noul",
+          "noul": 0.5421,
+          "confident": false,
+          "derived_confidence": 0.0842
+        },
+        "need_smoke": {
+          "type": "noul",
+          "noul": 0.5542,
+          "confident": false,
+          "derived_confidence": 0.1084
+        },
+        "need_integration": {
+          "type": "noul",
+          "noul": 0.24,
+          "confident": false,
+          "derived_confidence": 0.52
+        },
+        "need_e2e": {
+          "type": "noul",
+          "noul": 0.2346,
+          "confident": false,
+          "derived_confidence": 0.5308
+        },
+        "need_config": {
+          "type": "noul",
+          "noul": 0.3964,
+          "confident": false,
+          "derived_confidence": 0.2072
+        }
+      }
+    },
+    {
+      "id": "pr-09.diff",
+      "bytes": 12567,
+      "infer_seconds": 22.659,
+      "confident_answers": 0,
+      "total_answers": 7,
+      "answers": {
+        "behavior_change": {
+          "type": "noul",
+          "noul": 0.3632,
+          "confident": false,
+          "derived_confidence": 0.2736
+        },
+        "risk": {
+          "type": "score",
+          "score": 1.0691,
+          "confidence": 0.6458,
+          "confident": false,
+          "probabilities": {
+            "0": 0.2028,
+            "1": 0.5607,
+            "2": 0.201,
+            "3": 0.0355
+          }
+        },
+        "need_unit": {
+          "type": "noul",
+          "noul": 0.2835,
+          "confident": false,
+          "derived_confidence": 0.433
+        },
+        "need_smoke": {
+          "type": "noul",
+          "noul": 0.4701,
+          "confident": false,
+          "derived_confidence": 0.0598
+        },
+        "need_integration": {
+          "type": "noul",
+          "noul": 0.2729,
+          "confident": false,
+          "derived_confidence": 0.4542
+        },
+        "need_e2e": {
+          "type": "noul",
+          "noul": 0.1773,
+          "confident": false,
+          "derived_confidence": 0.6454
+        },
+        "need_config": {
+          "type": "noul",
+          "noul": 0.667,
+          "confident": false,
+          "derived_confidence": 0.334
+        }
+      }
+    },
+    {
+      "id": "pr-10.diff",
+      "bytes": 19491,
+      "infer_seconds": 22.415,
+      "confident_answers": 0,
+      "total_answers": 7,
+      "answers": {
+        "behavior_change": {
+          "type": "noul",
+          "noul": 0.3476,
+          "confident": false,
+          "derived_confidence": 0.3048
+        },
+        "risk": {
+          "type": "score",
+          "score": 1.1576,
+          "confidence": 0.6173,
+          "confident": false,
+          "probabilities": {
+            "0": 0.1802,
+            "1": 0.5313,
+            "2": 0.2392,
+            "3": 0.0493
+          }
+        },
+        "need_unit": {
+          "type": "noul",
+          "noul": 0.4408,
+          "confident": false,
+          "derived_confidence": 0.1184
+        },
+        "need_smoke": {
+          "type": "noul",
+          "noul": 0.5828,
+          "confident": false,
+          "derived_confidence": 0.1656
+        },
+        "need_integration": {
+          "type": "noul",
+          "noul": 0.2293,
+          "confident": false,
+          "derived_confidence": 0.5414
+        },
+        "need_e2e": {
+          "type": "noul",
+          "noul": 0.1955,
+          "confident": false,
+          "derived_confidence": 0.609
+        },
+        "need_config": {
+          "type": "noul",
+          "noul": 0.5604,
+          "confident": false,
+          "derived_confidence": 0.1208
+        }
+      }
+    },
+    {
+      "id": "pr-11.diff",
+      "bytes": 603,
+      "infer_seconds": 6.095,
+      "confident_answers": 0,
+      "total_answers": 7,
+      "answers": {
+        "behavior_change": {
+          "type": "noul",
+          "noul": 0.3386,
+          "confident": false,
+          "derived_confidence": 0.3228
+        },
+        "risk": {
+          "type": "score",
+          "score": 1.0779,
+          "confidence": 0.7579,
+          "confident": false,
+          "probabilities": {
+            "0": 0.1092,
+            "1": 0.7402,
+            "2": 0.114,
+            "3": 0.0366
+          }
+        },
+        "need_unit": {
+          "type": "noul",
+          "noul": 0.5197,
+          "confident": false,
+          "derived_confidence": 0.0394
+        },
+        "need_smoke": {
+          "type": "noul",
+          "noul": 0.7436,
+          "confident": false,
+          "derived_confidence": 0.4872
+        },
+        "need_integration": {
+          "type": "noul",
+          "noul": 0.2854,
+          "confident": false,
+          "derived_confidence": 0.4292
+        },
+        "need_e2e": {
+          "type": "noul",
+          "noul": 0.2666,
+          "confident": false,
+          "derived_confidence": 0.4668
+        },
+        "need_config": {
+          "type": "noul",
+          "noul": 0.4654,
+          "confident": false,
+          "derived_confidence": 0.0692
+        }
+      }
+    },
+    {
+      "id": "pr-12.diff",
+      "bytes": 1702,
+      "infer_seconds": 7.88,
+      "confident_answers": 0,
+      "total_answers": 7,
+      "answers": {
+        "behavior_change": {
+          "type": "noul",
+          "noul": 0.3647,
+          "confident": false,
+          "derived_confidence": 0.2706
+        },
+        "risk": {
+          "type": "score",
+          "score": 1.0372,
+          "confidence": 0.6994,
+          "confident": false,
+          "probabilities": {
+            "0": 0.1668,
+            "1": 0.6703,
+            "2": 0.1217,
+            "3": 0.0411
+          }
+        },
+        "need_unit": {
+          "type": "noul",
+          "noul": 0.284,
+          "confident": false,
+          "derived_confidence": 0.432
+        },
+        "need_smoke": {
+          "type": "noul",
+          "noul": 0.7783,
+          "confident": false,
+          "derived_confidence": 0.5566
+        },
+        "need_integration": {
+          "type": "noul",
+          "noul": 0.2036,
+          "confident": false,
+          "derived_confidence": 0.5928
+        },
+        "need_e2e": {
+          "type": "noul",
+          "noul": 0.2163,
+          "confident": false,
+          "derived_confidence": 0.5674
+        },
+        "need_config": {
+          "type": "noul",
+          "noul": 0.2848,
+          "confident": false,
+          "derived_confidence": 0.4304
+        }
+      }
+    }
+  ],
+  "verdict": "not_usable_low_confidence",
+  "note": "usable_for_routing is a soft bar (half of answers at >=0.9). Production still needs domain review of wrong confident answers."
+}
