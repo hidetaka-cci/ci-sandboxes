@@ -19,12 +19,15 @@ ENV VENV_DIR=/home/circleci/venv \
 USER circleci
 WORKDIR /home/circleci
 
+COPY prefetch_into_image.py /home/circleci/prefetch_into_image.py
+
 RUN python3 -m venv "${VENV_DIR}" \
  && . "${VENV_DIR}/bin/activate" \
  && python -m pip install --upgrade pip \
  && python -m pip install torch --index-url https://download.pytorch.org/whl/cpu \
  && python -m pip install "strands-decider==${STRANDS_DECIDER_VERSION}" \
- && python -c "from huggingface_hub import snapshot_download; import os; snapshot_download(os.environ['DECIDER_HUB_ID']); snapshot_download(os.environ['BASE_MODEL_ID'], revision=os.environ['BASE_MODEL_REVISION']); print('prefetch done')"
+ && python /home/circleci/prefetch_into_image.py \
+ && du -sh "${HF_HOME}" "${VENV_DIR}"
 
 # Measure jobs should not hit the network for weights.
 ENV HF_HUB_OFFLINE=1 \
