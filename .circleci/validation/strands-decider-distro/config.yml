@@ -98,17 +98,7 @@ jobs:
           command: |
             set -euo pipefail
             export PATH="${VENV_DIR}/bin:${PATH}"
-            # shellcheck disable=SC1091
-            set -a
-            source validation/strands-decider-distro/versions.env
-            set +a
-            python - <<'PY'
-            import os
-            from huggingface_hub import snapshot_download
-            snapshot_download(os.environ["DECIDER_HUB_ID"])
-            snapshot_download(os.environ["BASE_MODEL_ID"], revision=os.environ["BASE_MODEL_REVISION"])
-            print("prefetch ok")
-            PY
+            python validation/strands-decider-distro/scripts/prefetch_models.py
             du -sh "${HF_HOME}" "${VENV_DIR}" || true
       - save_cache:
           key: strands-decider-cache-{{ checksum "validation/strands-decider-distro/versions.env" }}
