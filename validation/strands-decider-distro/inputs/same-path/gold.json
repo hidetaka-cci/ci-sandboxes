@@ -1,0 +1,57 @@
+{
+  "ts-comment-only.diff": {
+    "path": "src/math.ts",
+    "gold": "cosmetic",
+    "question": "ts_behavior"
+  },
+  "ts-rename-only.diff": {
+    "path": "src/math.ts",
+    "gold": "cosmetic",
+    "question": "ts_behavior"
+  },
+  "ts-whitespace.diff": {
+    "path": "src/math.ts",
+    "gold": "cosmetic",
+    "question": "ts_behavior"
+  },
+  "ts-multiply-bug.diff": {
+    "path": "src/math.ts",
+    "gold": "behavioral",
+    "question": "ts_behavior"
+  },
+  "ts-guard-clause.diff": {
+    "path": "src/math.ts",
+    "gold": "behavioral",
+    "question": "ts_behavior"
+  },
+  "ts-increment-step.diff": {
+    "path": "src/counter.ts",
+    "gold": "behavioral",
+    "question": "ts_behavior"
+  },
+  "yml-comment.diff": {
+    "path": ".circleci/config.yml",
+    "gold": "cosmetic",
+    "question": "yml_shape"
+  },
+  "yml-image-tag.diff": {
+    "path": ".circleci/config.yml",
+    "gold": "scalar",
+    "question": "yml_shape"
+  },
+  "yml-resource.diff": {
+    "path": ".circleci/config.yml",
+    "gold": "scalar",
+    "question": "yml_shape"
+  },
+  "yml-new-job.diff": {
+    "path": ".circleci/config.yml",
+    "gold": "structural",
+    "question": "yml_shape"
+  },
+  "yml-drop-requires.diff": {
+    "path": ".circleci/config.yml",
+    "gold": "structural",
+    "question": "yml_shape"
+  }
+}

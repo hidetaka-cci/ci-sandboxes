@@ -1,0 +1,13 @@
+diff --git a/src/counter.ts b/src/counter.ts
+index 1111111..2222222 100644
+--- a/src/counter.ts
++++ b/src/counter.ts
+@@ -1,5 +1,5 @@
+ export function increment(count: number): number {
+-  return count + 1
++  return count + 2
+ }
+ 
+ export function decrement(count: number): number {
+   return count - 1
+ }

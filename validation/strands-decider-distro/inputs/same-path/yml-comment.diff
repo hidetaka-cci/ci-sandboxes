@@ -1,0 +1,13 @@
+diff --git a/.circleci/config.yml b/.circleci/config.yml
+index 1111111..2222222 100644
+--- a/.circleci/config.yml
++++ b/.circleci/config.yml
+@@ -1,8 +1,9 @@
+ # =============================================================
+ # Smarter Testing / Test Impact Analysis 検証用 CircleCI config
+ # =============================================================
+ #
++# Note: doctor must pass before test on this branch.
+ # 検証ステップ:
+ #   1. circleci testsuite doctor "ci tests"（全チェック pass）
+ #   2. main で analysis（1回目）→ feature branch で selection（2回目）

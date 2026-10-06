@@ -1,0 +1,13 @@
+diff --git a/src/math.ts b/src/math.ts
+index 1111111..2222222 100644
+--- a/src/math.ts
++++ b/src/math.ts
+@@ -1,6 +1,7 @@
+ export function multiply(a: number, b: number): number {
++  // Product of two numbers; used by the Vitest suite.
+   return a * b
+ }
+ 
+ export function add(a: number, b: number): number {
+   return a + b
+ }

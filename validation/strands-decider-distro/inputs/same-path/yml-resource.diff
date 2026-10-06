@@ -1,0 +1,10 @@
+diff --git a/.circleci/config.yml b/.circleci/config.yml
+index 1111111..2222222 100644
+--- a/.circleci/config.yml
++++ b/.circleci/config.yml
+@@ -13,7 +13,7 @@ executors:
+   node22-small:
+     docker:
+       - image: cimg/node:22.16
+-    resource_class: small
++    resource_class: medium

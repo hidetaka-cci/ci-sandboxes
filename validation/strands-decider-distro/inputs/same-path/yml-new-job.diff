@@ -1,0 +1,26 @@
+diff --git a/.circleci/config.yml b/.circleci/config.yml
+index 1111111..2222222 100644
+--- a/.circleci/config.yml
++++ b/.circleci/config.yml
+@@ -28,6 +28,12 @@ jobs:
+           command: circleci testsuite doctor "ci tests"
+ 
++  lint:
++    executor: node22-small
++    steps:
++      - checkout
++      - run: npx eslint .
++
+   test:
+     executor: node22-small
+     steps:
+@@ -54,4 +60,6 @@ workflows:
+   smarter-testing-verify:
+     jobs:
+       - doctor
++      - lint:
++          requires:
++            - doctor
+       - test:
+           requires:
+             - doctor
