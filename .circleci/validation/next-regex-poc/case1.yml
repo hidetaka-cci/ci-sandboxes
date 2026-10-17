@@ -1,0 +1,25 @@
+version: 2.1
+
+parameters:
+  random:
+    type: string
+    default: The default string
+
+jobs:
+  build:
+    docker:
+      - image: alpine
+    steps:
+      - run: exit
+
+workflows:
+  run:
+    when:
+      equal:
+        - << pipeline.parameters.random >>
+        - Guess it!
+    jobs:
+      - build:
+          filters:
+            branches:
+              only: "/^(?!I AM HERE).*$/"

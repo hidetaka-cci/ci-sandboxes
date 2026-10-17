@@ -1,0 +1,32 @@
+version: 2.1
+
+parameters:
+  something-falsy-by-default-but-sometimes-truthy:
+    type: boolean
+    default: false
+
+jobs:
+  build:
+    docker:
+      - image: alpine
+    steps:
+      - run: exit
+
+workflows:
+  run:
+    jobs:
+      - build:
+          filters:
+            branches:
+              only: "main"
+
+  guarded:
+    when:
+      condition:
+        and:
+          - << pipeline.parameters.something-falsy-by-default-but-sometimes-truthy >>
+          - matches:
+              pattern: "^(?!I AM SNEAKING INTO IT).*"
+              value: arbitrary value
+    jobs:
+      - build
