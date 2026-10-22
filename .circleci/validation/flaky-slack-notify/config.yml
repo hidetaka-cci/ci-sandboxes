@@ -74,10 +74,10 @@ jobs:
                 --argjson blocks "$FLAKY_BLOCKS" \
                 --arg url "$INSIGHTS_URL" \
                 '{
-                  "blocks": [
+                  "blocks": ([
                     {"type": "header", "text": {"type": "plain_text", "text": ("⚠️ [検証] フレイキーテスト検出: " + $count + " 件")}},
                     {"type": "context", "elements": [{"type": "mrkdwn", "text": ("<" + $url + "|Insights で確認>")}]}
-                  ] + $blocks
+                  ] + $blocks)
                 }' > /tmp/slack-template.json
 
               echo 'export FLAKY_DETECTED=true' >> "$BASH_ENV"
