@@ -1,0 +1,98 @@
+# =============================================================
+# 記事検証用: Insights API フレイキーテスト検出 → Slack 通知
+# =============================================================
+#
+# 検証対象: 記事中の config.yml にある check-flaky-tests ジョブ
+# (jq によるテンプレート生成 + Slack Orb カスタムテンプレート通知)
+#
+# 注意: private-slack context には CIRCLE_TOKEN が未登録のため、
+# 実際の Insights API 呼び出しは行わず、API レスポンスをモックして
+# Slack 通知部分のみを検証する。
+#
+version: 2.1
+
+orbs:
+  slack: circleci/slack@4
+
+jobs:
+  check-flaky-tests:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+    steps:
+      - run:
+          name: Get flaky tests (mocked Insights API response)
+          command: |
+            RESPONSE='{
+              "flaky_tests": [
+                {
+                  "test_name": "FilterPanel - callback properties > search input 変更時に setSearch が呼ばれる",
+                  "times_flaked": 5,
+                  "file": "src/test/FilterPanel.pbt.test.tsx",
+                  "source": "vitest",
+                  "pipeline_number": 252,
+                  "workflow_name": "default",
+                  "job_name": "test-small",
+                  "workflow_id": "abc123"
+                },
+                {
+                  "test_name": "CheckoutFlow > 決済ボタン押下後にローディング状態になる",
+                  "times_flaked": 3,
+                  "file": "src/test/CheckoutFlow.test.tsx",
+                  "source": "jest",
+                  "pipeline_number": 248,
+                  "workflow_name": "default",
+                  "job_name": "test-e2e",
+                  "workflow_id": "def456"
+                }
+              ],
+              "total_count": 2
+            }'
+
+            FLAKY_COUNT=$(echo "$RESPONSE" | jq '.flaky_tests | length')
+
+            if [ "$FLAKY_COUNT" -gt 0 ]; then
+              FLAKY_BLOCKS=$(echo "$RESPONSE" | jq '[
+                .flaky_tests
+                | sort_by(-.times_flaked)
+                | .[0:5]
+                | .[]
+                | {
+                    "type": "section",
+                    "fields": [
+                      {"type": "mrkdwn", "text": ("*テスト名*\n" + .test_name)},
+                      {"type": "mrkdwn", "text": ("*発生回数*: " + (.times_flaked | tostring) + " 回\n*ジョブ*: " + .job_name)}
+                    ]
+                  },
+                  {"type": "divider"}
+              ]')
+
+              INSIGHTS_URL="https://app.circleci.com/insights/gh/hidetaka-cci/ci-sandboxes?branch=main"
+
+              jq -n \
+                --arg count "$FLAKY_COUNT" \
+                --argjson blocks "$FLAKY_BLOCKS" \
+                --arg url "$INSIGHTS_URL" \
+                '{
+                  "blocks": [
+                    {"type": "header", "text": {"type": "plain_text", "text": ("⚠️ [検証] フレイキーテスト検出: " + $count + " 件")}},
+                    {"type": "context", "elements": [{"type": "mrkdwn", "text": ("<" + $url + "|Insights で確認>")}]}
+                  ] + $blocks
+                }' > /tmp/slack-template.json
+
+              echo 'export FLAKY_DETECTED=true' >> "$BASH_ENV"
+              echo 'export CUSTOM_SLACK_TEMPLATE=$(cat /tmp/slack-template.json)' >> "$BASH_ENV"
+            else
+              echo "No flaky tests detected"
+              echo 'export FLAKY_DETECTED=false' >> "$BASH_ENV"
+            fi
+      - slack/notify:
+          event: always
+          template: CUSTOM_SLACK_TEMPLATE
+
+workflows:
+  flaky-slack-notify-verify:
+    jobs:
+      - check-flaky-tests:
+          context:
+            - private-slack
